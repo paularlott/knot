@@ -30,8 +30,9 @@ import (
 // ackLog is what was written to each of a set of files (or parts of a
 // file), and which of it was acknowledged: what a reader may find there.
 type ackLog struct {
-	mu sync.Mutex
-	m  map[string]*acks
+	mu    sync.Mutex
+	m     map[string]*acks
+	began time.Time // when the kills began: the times in a file's history are from it
 }
 
 type acks struct {
@@ -39,6 +40,14 @@ type acks struct {
 	hasLast bool            // whether any was
 	pending [][]byte        // tried since, not acknowledged (yet)
 	earlier map[string]bool // shas of versions acknowledged before last
+	history []ackEvent      // every try and acknowledgement, told when a check fails
+}
+
+// ackEvent is a write tried, or acknowledged, at a time.
+type ackEvent struct {
+	at  time.Time
+	ok  bool
+	sha string
 }
 
 func (l *ackLog) get(key string) *acks {
@@ -63,6 +72,7 @@ func (l *ackLog) try(key string, data []byte, truncates bool) {
 		a.pending = append(a.pending, nil)
 	}
 	a.pending = append(a.pending, data)
+	a.history = append(a.history, ackEvent{time.Now(), false, shaOf(data)})
 }
 
 // ok records a write acknowledged: the file holds it, or something written
@@ -75,6 +85,27 @@ func (l *ackLog) ok(key string, data []byte) {
 		a.earlier[shaOf(a.last)] = true
 	}
 	a.last, a.hasLast, a.pending = data, true, nil
+	a.history = append(a.history, ackEvent{time.Now(), true, shaOf(data)})
+}
+
+// start notes when the kills began.
+func (l *ackLog) start() {
+	l.mu.Lock()
+	l.began = time.Now()
+	l.mu.Unlock()
+}
+
+// historyLocked is a file's writes, for a failed check; l.mu is held.
+func (l *ackLog) historyLocked(a *acks) string {
+	var b strings.Builder
+	for _, e := range a.history {
+		what := "tried"
+		if e.ok {
+			what = "acknowledged"
+		}
+		fmt.Fprintf(&b, "\n            %8s %s %.8s", e.at.Sub(l.began).Round(10*time.Millisecond), what, e.sha)
+	}
+	return b.String()
 }
 
 func (l *ackLog) keys() []string {
@@ -135,7 +166,7 @@ func (l *ackLog) check(key string, got []byte, present bool) (problem string, to
 	if a.hasLast {
 		last = fmt.Sprintf("%.8s (%d bytes)", shaOf(a.last), len(a.last))
 	}
-	return fmt.Sprintf("holds %s, %.8s (%d bytes); last acknowledged %s, %d tried since", what, sha, len(got), last, len(a.pending)), false
+	return fmt.Sprintf("holds %s, %.8s (%d bytes); last acknowledged %s, %d tried since; its writes:%s", what, sha, len(got), last, len(a.pending), l.historyLocked(a)), false
 }
 
 // blocksOf says whether every 4 KB block of got is that block of one of
@@ -581,6 +612,7 @@ func TestFileServersKilled(t *testing.T) {
 		}},
 	}
 	began := time.Now()
+	log.start()
 	for _, k := range kills {
 		time.Sleep(8 * time.Second)
 		at := time.Since(began)

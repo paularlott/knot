@@ -5,6 +5,7 @@ package desktop
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -13,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -83,6 +85,11 @@ NFSv3, for a single bucket or folder by its path:
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_NFS_CACHE_SIZE"},
 			DefaultValue: "1GB",
 		},
+		&cli.StringFlag{
+			Name:    "staging-dir",
+			Usage:   "Where files written wait to be saved to the server. Writes not yet saved when the nfs-server stops or is killed are saved from here when it starts again. Defaults to a folder in the cache directory (--cache-dir, else the user's cache folder) for this server, user and address.",
+			EnvVars: []string{config.CONFIG_ENV_PREFIX + "_NFS_STAGING_DIR"},
+		},
 		&cli.StringSliceFlag{
 			Name:    "nfs-allow",
 			Usage:   "Addresses or CIDRs allowed to connect (default loopback only). NFS has no authentication: anyone allowed can reach every file the user can.",
@@ -135,16 +142,28 @@ func runNFSServer(ctx context.Context, cmd *cli.Command) error {
 	writer := newWriterId()
 	client.SetWriter(writer)
 
+	// Staged writes are kept where the next nfs-server for this server,
+	// user and address finds them, so those not saved when this one stops
+	// or dies are saved then.
+	staging := cmd.GetString("staging-dir")
+	if staging == "" {
+		staging = defaultStagingDir(cmd.GetString("cache-dir"), client.GetBaseURL(), user.Id, listen)
+		if staging == "" {
+			logger.Warn("no user cache folder: writes not yet saved when the nfs-server stops are lost; set --staging-dir to keep them")
+		}
+	}
+
 	srv, err := nfsserver.Start(nfsserver.NewAPIBackend(client), nfsserver.Config{
-		Listen:    listen,
-		Allow:     cmd.GetStringSlice("nfs-allow"),
-		Uid:       ownerId(cmd.GetInt("uid"), os.Getuid()),
-		Gid:       ownerId(cmd.GetInt("gid"), os.Getgid()),
-		ForceUid:  cmd.GetInt("uid") >= 0,
-		ForceGid:  cmd.GetInt("gid") >= 0,
-		CacheDir:  cmd.GetString("cache-dir"),
-		CacheSize: cacheSize,
-		Writer:    writer,
+		Listen:     listen,
+		Allow:      cmd.GetStringSlice("nfs-allow"),
+		Uid:        ownerId(cmd.GetInt("uid"), os.Getuid()),
+		Gid:        ownerId(cmd.GetInt("gid"), os.Getgid()),
+		ForceUid:   cmd.GetInt("uid") >= 0,
+		ForceGid:   cmd.GetInt("gid") >= 0,
+		CacheDir:   cmd.GetString("cache-dir"),
+		CacheSize:  cacheSize,
+		StagingDir: staging,
+		Writer:     writer,
 	})
 	if err != nil {
 		return err
@@ -228,4 +247,21 @@ func newWriterId() string {
 	var b [12]byte
 	rand.Read(b[:])
 	return "nfs-" + hex.EncodeToString(b[:])
+}
+
+// defaultStagingDir is the staging folder of the nfs-server for a knot
+// server, user and listen address: in cacheDir when there is one (beside
+// the cache, which takes saved files from it), else in the user's cache
+// folder; empty when there is neither.
+func defaultStagingDir(cacheDir, server, userId, listen string) string {
+	sum := sha256.Sum256([]byte(server + "\x00" + userId + "\x00" + listen))
+	name := hex.EncodeToString(sum[:8])
+	if cacheDir != "" {
+		return filepath.Join(cacheDir, "staging", name)
+	}
+	base, err := os.UserCacheDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(base, "knot", "nfs-staging", name)
 }

@@ -110,6 +110,8 @@ resources → events → ports → logs → clustering.
 | `TestSpaceStacks` | two spaces in one stack start, stop together, and `DeleteStack` removes both |
 | `TestSpaceFiles` | write/read, ranged read, grep, find, sed, search/replace edit, symlink (checked via `readlink`), delete |
 | `TestSpaceRunCommandBehaviour` | commands run through a shell (pipes work), stdout+stderr are combined, they run as the space user in its home, failures report errors |
+| `TestSpaceMirrorRoundTrip` | `knot space mirror` both ways keeps every byte, mtime, mode and symlink, including a file sent in pieces; reruns copy nothing, `--verify` agrees, deletes follow the source, and empty or missing sources are refused |
+| `TestSpaceMirrorFoldersAndWatch` | mirror makes empty folders and copies folder modes both ways, replaces a symlink with a file rather than writing through it, leaves no temporary upload behind, and `--watch` sends new files, new empty folders and deletes, then stops on Ctrl+C |
 | `TestSpaceSharing` | a space shared to user1 becomes visible and usable by user1 |
 | `TestSpaceTransfer` | a stopped space transfers to another owner and shows under the new owner only |
 

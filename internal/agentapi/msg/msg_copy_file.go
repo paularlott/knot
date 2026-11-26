@@ -4,7 +4,11 @@ package msg
 // direction (to_space / from_space).
 //
 // Mode is the write semantics for to_space: "overwrite" (default), "append",
-// or "prepend".
+// "prepend", "mkdir" (create DestPath as a folder, then apply FilePerm),
+// "chmod" (apply FilePerm, and MtimeNs when set, to DestPath, which must be
+// there and not a symlink), or
+// "rename" (move RenameFrom to DestPath, replacing what is there, then apply
+// MtimeNs and FilePerm).
 //
 // MtimeNs and FilePerm are optional to_space metadata used by sync tools to
 // preserve the source file's modification time and permission bits — both are
@@ -16,10 +20,11 @@ type CopyFileMessage struct {
 	Content       []byte `msgpack:"content,omitempty"`
 	Direction     string `msgpack:"direction"` // "to_space" or "from_space"
 	Workdir       string `msgpack:"workdir"`
-	Mode          string `msgpack:"mode,omitempty"`           // to_space only: "overwrite" (default), "append", "prepend"
+	Mode          string `msgpack:"mode,omitempty"`           // to_space only: "overwrite" (default), "append", "prepend", "mkdir", "chmod", "rename"
 	MtimeNs       int64  `msgpack:"mtime_ns,omitempty"`       // to_space only: unix nanoseconds; agent Chtimes after write
 	FilePerm      uint32 `msgpack:"file_perm,omitempty"`      // to_space only: os.FileMode bits; agent Chmod after write
 	SymlinkTarget string `msgpack:"symlink_target,omitempty"` // to_space only: when set, create symlink instead of writing content
+	RenameFrom    string `msgpack:"rename_from,omitempty"`    // to_space mode "rename" only: the file moved to DestPath
 	// from_space only: read ByteLength bytes from ByteOffset rather than the
 	// whole file, so large files come back in pieces. ByteLength 0 reads
 	// the whole file.

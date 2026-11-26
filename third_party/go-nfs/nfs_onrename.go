@@ -14,6 +14,7 @@ var doubleWccErrorBody = [16]byte{}
 
 func onRename(ctx context.Context, w *response, userHandle Handler) error {
 	w.errorFmt = errFormatterWithBody(doubleWccErrorBody[:])
+	w.waitEarlier() // knot: writes sent before the rename are made first
 	from := DirOpArg{}
 	err := xdr.Read(w.req.Body, &from)
 	if err != nil {

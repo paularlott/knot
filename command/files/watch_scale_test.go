@@ -6,10 +6,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"testing"
 
-	"github.com/fsnotify/fsnotify"
+	"github.com/paularlott/knot/internal/util/dirwatch"
 )
 
 // checksumsRead is how many files a sync read for their checksum, from its
@@ -110,21 +109,15 @@ func TestWatchFailuresReportedOnce(t *testing.T) {
 	}
 	var out logBuf
 	s := newSyncer(client, syncOptions{dir: dir, log: out.logger()})
-	fsw, err := fsnotify.NewWatcher()
+	w, err := dirwatch.NewNotify(s.watchOptions())
 	if err != nil {
 		t.Fatal(err)
 	}
-	fsw.Close() // every Add fails
-	s.watchTree(fsw, dir)
-	s.watchTree(fsw, dir)
+	w.Close() // every Add fails
+	w.Add(dir)
+	w.Add(dir)
 	text := out.String()
 	if strings.Count(text, "cannot watch every folder") != 1 || !logged(text, "cannot watch every folder", `"unwatched":5`, `"of":5`) {
 		t.Errorf("watch failures not reported once:\n%s", text)
-	}
-}
-
-func TestWatchLimitHint(t *testing.T) {
-	if h := watchLimitHint(syscall.EMFILE, 10); !strings.Contains(h, "ulimit -n") {
-		t.Errorf("open file limit hint: %q", h)
 	}
 }

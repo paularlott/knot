@@ -721,12 +721,30 @@ func TestFileSharedFolder(t *testing.T) {
 		}
 	}
 	readAll(t, ctx, servers, bucket, final)
-	if got, err := listShas(ctx, adminA.Client, bucket, "tmp/"); err == nil {
-		for k := range got {
-			if !strings.HasSuffix(k, "/") {
-				t.Errorf("a temporary file renamed over another is still there: %s", k)
+	// No temporary file renamed over another is left, on either server. A
+	// rename is a copy then a delete, gossiped one after the other, so the
+	// other server can agree on same/ a moment before the delete reaches
+	// it: wait, as for the files themselves.
+	tmpLeft := func() []string {
+		var left []string
+		for _, c := range []*apiclient.ApiClient{adminA.Client, adminB.Client} {
+			got, err := listShas(ctx, c, bucket, "tmp/")
+			if err != nil {
+				return []string{"listing tmp/: " + err.Error()}
+			}
+			for k := range got {
+				if !strings.HasSuffix(k, "/") {
+					left = append(left, k)
+				}
 			}
 		}
+		return left
+	}
+	tmpStart, first := time.Now(), tmpLeft()
+	if !waitForCond(int(settle.Seconds()), func() bool { return len(tmpLeft()) == 0 }) {
+		t.Errorf("temporary files renamed over others are still there: %v", tmpLeft())
+	} else if len(first) > 0 {
+		t.Logf("temporary files renamed over others were gone %s later: %v", time.Since(tmpStart).Round(time.Millisecond), first)
 	}
 
 	// Both servers agree on each large file, every part of it holding a

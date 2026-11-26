@@ -757,7 +757,9 @@ func (c *ApiClient) WriteSpaceFile(ctx context.Context, spaceId string, filePath
 }
 
 // WriteSpaceFileMode writes content with a mode: "overwrite" (default),
-// "append", or "prepend".
+// "append", or "prepend". The write endpoint's other modes, which carry no
+// content, have calls of their own: MakeSpaceDir, ChmodSpaceFile and
+// RenameSpaceFile.
 func (c *ApiClient) WriteSpaceFileMode(ctx context.Context, spaceId string, filePath string, content string, mode string) error {
 	return c.WriteSpaceFileOpts(ctx, spaceId, filePath, content, mode, 0, 0)
 }
@@ -987,6 +989,8 @@ type DeleteFileRequest struct {
 // Uses the same /files/write endpoint with SymlinkTarget set instead of
 // Content. The agent removes any existing file at the destination first.
 func (c *ApiClient) CreateSymlinkSpaceFile(ctx context.Context, spaceId, filePath, target string) error {
+	ctx, cancel := spaceWork(ctx)
+	defer cancel()
 	var request struct {
 		Path          string `json:"path" msgpack:"path"`
 		SymlinkTarget string `json:"symlink_target" msgpack:"symlink_target"`
@@ -1002,6 +1006,45 @@ func (c *ApiClient) CreateSymlinkSpaceFile(ctx context.Context, spaceId, filePat
 
 	_, err := c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/files/write", request, &response, 200)
 	if err != nil {
+		return err
+	}
+	if !response.Success {
+		return fmt.Errorf("%s", response.Error)
+	}
+	return nil
+}
+
+// MakeSpaceDir creates a folder, with its parents, in a running space and,
+// when perm is not zero, sets its permission bits.
+func (c *ApiClient) MakeSpaceDir(ctx context.Context, spaceId, dirPath string, perm uint32) error {
+	return c.writeSpaceOp(ctx, spaceId, map[string]any{"path": dirPath, "mode": "mkdir", "file_perm": perm})
+}
+
+// ChmodSpaceFile sets the permission bits of a file or folder in a running
+// space, without sending its content.
+func (c *ApiClient) ChmodSpaceFile(ctx context.Context, spaceId, filePath string, perm uint32) error {
+	return c.writeSpaceOp(ctx, spaceId, map[string]any{"path": filePath, "mode": "chmod", "file_perm": perm})
+}
+
+// RenameSpaceFile moves the file at from to filePath in a running space,
+// replacing what is there (a symlink is replaced, not written through), then
+// applies mtimeNs and filePerm when not zero.
+func (c *ApiClient) RenameSpaceFile(ctx context.Context, spaceId, from, filePath string, mtimeNs int64, filePerm uint32) error {
+	return c.writeSpaceOp(ctx, spaceId, map[string]any{
+		"path": filePath, "mode": "rename", "rename_from": from,
+		"mtime_ns": mtimeNs, "file_perm": filePerm,
+	})
+}
+
+func (c *ApiClient) writeSpaceOp(ctx context.Context, spaceId string, request map[string]any) error {
+	ctx, cancel := spaceWork(ctx)
+	defer cancel()
+	request["content"] = ""
+	var response struct {
+		Success bool   `json:"success" msgpack:"success"`
+		Error   string `json:"error" msgpack:"error"`
+	}
+	if _, err := c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/files/write", request, &response, 200); err != nil {
 		return err
 	}
 	if !response.Success {

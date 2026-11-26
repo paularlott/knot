@@ -1,6 +1,6 @@
 //go:build darwin
 
-package command_files
+package dirwatch
 
 import (
 	"os"
@@ -9,31 +9,32 @@ import (
 	"time"
 )
 
-// On macOS a sync watches with FSEvents, which reports changes anywhere in
+// On macOS the directory is watched with FSEvents, which reports changes anywhere in
 // the tree from one stream.
 func TestFSEventsWatcher(t *testing.T) {
-	client, _ := newFilesServer(t)
-	dir := mustReal(t, t.TempDir())
-	os.MkdirAll(filepath.Join(dir, "deep", "er"), 0755)
-	var out logBuf
-	s := newSyncer(client, syncOptions{dir: dir, log: out.logger()})
-	w, err := newDirWatcher(s)
+	dir, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer w.close()
-	if _, ok := w.(*fseventsWatcher); !ok {
-		t.Fatalf("watching with %T, not FSEvents:\n%s", w, out.String())
+	os.MkdirAll(filepath.Join(dir, "deep", "er"), 0755)
+	var warned []string
+	w, err := New(Options{Root: dir, Warn: func(msg string, err error) { warned = append(warned, msg+": "+err.Error()) }})
+	if err != nil {
+		t.Fatal(err)
 	}
-	w.add(dir)
+	defer w.Close()
+	if _, ok := w.(*fseventsWatcher); !ok {
+		t.Fatalf("watching with %T, not FSEvents: %v", w, warned)
+	}
+	w.Add(dir)
 
 	expect := func(what, path string) {
 		t.Helper()
 		deadline := time.After(5 * time.Second)
 		for {
 			select {
-			case ev := <-w.events():
-				if ev.path == path || ev.all {
+			case ev := <-w.Events():
+				if ev.Path == path || ev.All {
 					return
 				}
 			case <-deadline:
@@ -59,7 +60,7 @@ func TestFSEventsWatcher(t *testing.T) {
 	os.Remove(moved)
 	expect("a removal", moved)
 
-	if w.takeLost() {
+	if w.TakeLost() {
 		t.Error("events reported lost")
 	}
 }

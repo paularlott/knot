@@ -6,11 +6,13 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/paularlott/knot/command/cmdutil"
+	"github.com/paularlott/knot/internal/util/writedir"
 )
 
 // isSpacePath reports whether a mirror argument names a space, as
@@ -28,6 +30,7 @@ type localEntry struct {
 	linkTarget string
 	size       int64
 	mtime      time.Time
+	perm       uint32
 }
 
 // download is the per-file work item for pull.
@@ -47,6 +50,7 @@ const tempPrefix = ".knot-mirror-"
 // Failures of individual files don't abort the run.
 func (o *mirrorOptions) runPull(ctx context.Context) (*mirrorStats, error) {
 	stats := &mirrorStats{}
+	o.resolveRoot()
 
 	remoteSet, err := o.fetchRemoteSet(ctx)
 	if err != nil {
@@ -57,7 +61,8 @@ func (o *mirrorOptions) runPull(ctx context.Context) (*mirrorStats, error) {
 	}
 	excludes := compileExcludes(o.excludes)
 	for rel, meta := range remoteSet {
-		if excludes(rel, meta.isDir) {
+		// A large upload a push left unfinished is not a file to fetch.
+		if excludes(rel, meta.isDir) || (!meta.isDir && isUploadTemp(rel)) {
 			delete(remoteSet, rel)
 		}
 	}
@@ -70,6 +75,14 @@ func (o *mirrorOptions) runPull(ctx context.Context) (*mirrorStats, error) {
 	if err != nil {
 		return stats, err
 	}
+	// Files named as an unfinished upload are left alone here too: the
+	// space's are not fetched, so one here would otherwise look like a file
+	// the space doesn't have, and be deleted.
+	for rel, l := range localSet {
+		if !l.isDir && isUploadTemp(rel) {
+			delete(localSet, rel)
+		}
+	}
 
 	// Refuse to wipe the local folder when the space has nothing to mirror,
 	// as a mistyped path or swapped arguments would.
@@ -81,6 +94,7 @@ func (o *mirrorOptions) runPull(ctx context.Context) (*mirrorStats, error) {
 	// a local file stands) clear the way.
 	var downloads []download
 	var conflicts []string
+	var dirs []localDir
 	toHash := map[string]string{}
 	for rel, r := range remoteSet {
 		l, ok := localSet[rel]
@@ -98,6 +112,7 @@ func (o *mirrorOptions) runPull(ctx context.Context) (*mirrorStats, error) {
 			if hadLocal && !l.isDir {
 				conflicts = append(conflicts, rel)
 			}
+			dirs = append(dirs, localDir{rel: rel, perm: r.perm})
 			continue
 		}
 		stats.scanned.Add(1)
@@ -116,11 +131,13 @@ func (o *mirrorOptions) runPull(ctx context.Context) (*mirrorStats, error) {
 				if hashes[rel] == r.hash {
 					stats.hashSkipped.Add(1)
 					stats.skipped.Add(1)
+					o.fixLocalMode(rel, l.perm, r.perm, stats)
 					continue
 				}
 			} else if mtimeWithin(l.mtime, r.mtime, mtimeTolerance) {
 				stats.mtimeSkipped.Add(1)
 				stats.skipped.Add(1)
+				o.fixLocalMode(rel, l.perm, r.perm, stats)
 				continue
 			}
 		}
@@ -134,7 +151,13 @@ func (o *mirrorOptions) runPull(ctx context.Context) (*mirrorStats, error) {
 	// directory's files have somewhere to land.
 	o.deleteLocal(conflicts, stats)
 
+	// Read-only folders here are opened while files are added to or
+	// removed from them (see writedir), then given back their modes.
 	o.downloadInParallel(ctx, downloads, stats)
+
+	// Then the folders the downloads didn't make (empty ones), and folder
+	// modes.
+	o.makeLocalDirs(ctx, dirs, stats)
 
 	// Anything left in localSet isn't in the space → remove it. A removed
 	// directory takes its contents with it, so they're skipped.
@@ -145,6 +168,64 @@ func (o *mirrorOptions) runPull(ctx context.Context) (*mirrorStats, error) {
 	o.deleteLocal(withoutNested(extras), stats)
 
 	return stats, nil
+}
+
+// fixLocalMode gives a file that needs no download the space's permission
+// bits, when only they changed (chmod keeps size and mtime).
+func (o *mirrorOptions) fixLocalMode(rel string, local, remote uint32, stats *mirrorStats) {
+	if remote == 0 || local == remote || runtime.GOOS == "windows" {
+		return
+	}
+	if !o.dryRun {
+		if err := os.Chmod(filepath.Join(o.localRoot, filepath.FromSlash(rel)), os.FileMode(remote)); err != nil {
+			stats.failed.Add(1)
+			fmt.Fprintf(os.Stderr, "  ! %s: %v\n", rel, err)
+			return
+		}
+	}
+	if o.verbose {
+		fmt.Fprintf(os.Stderr, "  ↓ %s (mode %o)\n", rel, remote)
+	}
+}
+
+// makeLocalDirs makes the space's folders here with their modes, those
+// deepest first, so a folder is never made read-only before the ones in it.
+func (o *mirrorOptions) makeLocalDirs(ctx context.Context, dirs []localDir, stats *mirrorStats) {
+	sortDirs(dirs, true)
+	for _, d := range dirs {
+		if ctx.Err() != nil {
+			return
+		}
+		dest := filepath.Join(o.localRoot, filepath.FromSlash(d.rel))
+		info, err := os.Stat(dest)
+		missing := err != nil
+		setMode := d.perm != 0 && runtime.GOOS != "windows" && (missing || uint32(info.Mode().Perm()) != d.perm)
+		if !missing && !setMode {
+			continue
+		}
+		if o.dryRun {
+			if o.verbose {
+				fmt.Fprintf(os.Stderr, "  ↓ %s/ (dry-run)\n", d.rel)
+			}
+			stats.uploaded.Add(1)
+			continue
+		}
+		if missing {
+			err = writedir.MkdirAll(dest, 0755)
+		}
+		if err == nil && setMode {
+			err = os.Chmod(dest, os.FileMode(d.perm))
+		}
+		if err != nil {
+			stats.failed.Add(1)
+			fmt.Fprintf(os.Stderr, "  ! %s/: %v\n", d.rel, err)
+			continue
+		}
+		stats.uploaded.Add(1)
+		if o.verbose {
+			fmt.Fprintf(os.Stderr, "  ↓ %s/\n", d.rel)
+		}
+	}
 }
 
 // walkLocal lists the local folder, keyed by slash-relative path, leaving
@@ -190,7 +271,7 @@ func (o *mirrorOptions) walkLocal(excludes func(string, bool) bool) (map[string]
 			if err != nil {
 				return nil
 			}
-			set[relSlash] = localEntry{size: info.Size(), mtime: info.ModTime()}
+			set[relSlash] = localEntry{size: info.Size(), mtime: info.ModTime(), perm: uint32(info.Mode().Perm())}
 		}
 		return nil
 	})
@@ -268,7 +349,8 @@ func (o *mirrorOptions) downloadInParallel(ctx context.Context, downloads []down
 // leaves a partial file under the real name. Returns the bytes fetched.
 func (o *mirrorOptions) downloadOne(ctx context.Context, d download) (int64, error) {
 	dest := filepath.Join(o.localRoot, filepath.FromSlash(d.rel))
-	if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
+	dir := filepath.Dir(dest)
+	if err := writedir.MkdirAll(dir, 0755); err != nil {
 		return 0, err
 	}
 
@@ -276,10 +358,20 @@ func (o *mirrorOptions) downloadOne(ctx context.Context, d download) (int64, err
 		if err := clearLocal(dest); err != nil {
 			return 0, err
 		}
-		return 0, os.Symlink(d.symlinkTarget, dest)
+		// A file here is replaced too: a symlink can't be renamed over it.
+		return 0, writedir.In(func() error {
+			if info, err := os.Lstat(dest); err == nil && !info.IsDir() {
+				os.Remove(dest)
+			}
+			return os.Symlink(d.symlinkTarget, dest)
+		}, dir)
 	}
 
-	tmp, err := os.CreateTemp(filepath.Dir(dest), tempPrefix+"*")
+	var tmp *os.File
+	err := writedir.In(func() (err error) {
+		tmp, err = os.CreateTemp(dir, tempPrefix+"*")
+		return err
+	}, dir)
 	if err != nil {
 		return 0, err
 	}
@@ -287,7 +379,7 @@ func (o *mirrorOptions) downloadOne(ctx context.Context, d download) (int64, err
 	defer func() {
 		if !done {
 			tmp.Close()
-			os.Remove(tmp.Name())
+			writedir.Remove(tmp.Name())
 		}
 	}()
 
@@ -327,7 +419,7 @@ func (o *mirrorOptions) downloadOne(ctx context.Context, d download) (int64, err
 	if err := clearLocal(dest); err != nil {
 		return offset, err
 	}
-	if err := os.Rename(tmp.Name(), dest); err != nil {
+	if err := writedir.Rename(tmp.Name(), dest); err != nil {
 		return offset, err
 	}
 	done = true
@@ -341,7 +433,7 @@ func clearLocal(p string) error {
 	if err != nil || info.Mode().IsRegular() {
 		return nil
 	}
-	return os.RemoveAll(p)
+	return writedir.RemoveAll(p)
 }
 
 // deleteLocal removes the given slash-relative paths under the local
@@ -355,7 +447,7 @@ func (o *mirrorOptions) deleteLocal(rels []string, stats *mirrorStats) {
 			stats.deleted.Add(1)
 			continue
 		}
-		if err := os.RemoveAll(filepath.Join(o.localRoot, filepath.FromSlash(rel))); err != nil {
+		if err := writedir.RemoveAll(filepath.Join(o.localRoot, filepath.FromSlash(rel))); err != nil {
 			stats.failed.Add(1)
 			fmt.Fprintf(os.Stderr, "  ! %s: %v\n", rel, err)
 			continue

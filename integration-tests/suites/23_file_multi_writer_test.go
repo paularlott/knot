@@ -522,8 +522,9 @@ func TestFileMultiWriter(t *testing.T) {
 		if _, err := held.WriteString("before "); err != nil {
 			t.Fatal(err)
 		}
-		// Saved: what is written and not yet saved is lost with the
-		// nfs-server, as a local file's is in a crash before fsync.
+		// Saved, so the test is of the open and the lock only (writes not
+		// yet saved are taken back by the restarted nfs-server, see
+		// TestFileServersKilled).
 		if err := held.Sync(); err != nil {
 			t.Fatal(err)
 		}

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/apiclient"
+	"github.com/paularlott/knot/internal/util/dirwatch"
 )
 
 // Watching keeps a sync running: local changes are seen by watching the
@@ -48,7 +49,7 @@ type eventFollower func(ctx context.Context, onEvent func(apiclient.Event), onSt
 // watch runs passes as changes come, after the first, which ended with
 // firstErr. w is the directory's watcher when it was started before the
 // first pass, nil when the directory did not exist then.
-func (s *syncer) watch(ctx context.Context, w dirWatcher, firstErr error, follow eventFollower) error {
+func (s *syncer) watch(ctx context.Context, w dirwatch.Watcher, firstErr error, follow eventFollower) error {
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
@@ -58,18 +59,18 @@ func (s *syncer) watch(ctx context.Context, w dirWatcher, firstErr error, follow
 	// A directory the first pass made was not watched while it ran: look at
 	// all of it once, now that it is.
 	rescan := false
-	var fsEvents <-chan watchEvent
+	var fsEvents <-chan dirwatch.Event
 	if watchLocal {
 		if w == nil {
 			var err error
-			if w, err = newDirWatcher(s); err != nil {
+			if w, err = s.newDirWatcher(); err != nil {
 				return fmt.Errorf("watch %s: %w", s.opt.dir, err)
 			}
-			w.add(s.opt.dir)
+			w.Add(s.opt.dir)
 			rescan = true
 		}
-		defer w.close()
-		fsEvents = w.events()
+		defer w.Close()
+		fsEvents = w.Events()
 	}
 	defer s.saveHashes(true)
 
@@ -197,7 +198,7 @@ func (s *syncer) watch(ctx context.Context, w dirWatcher, firstErr error, follow
 				rescan = true
 			}
 			// Events lost (a queue overflowed): look at everything.
-			if w != nil && w.takeLost() {
+			if w != nil && w.TakeLost() {
 				s.log.Debug("file system events were lost: looking at every file")
 				rescan = true
 			}
@@ -275,7 +276,7 @@ func worthRetrying(err error) bool {
 // flushLocal sends what changed locally and has not been synced: the
 // changes seen and, looking at every file, any the watcher has not told of
 // yet (FSEvents reports a moment late).
-func (s *syncer) flushLocal(ctx context.Context, w dirWatcher, fsEvents <-chan watchEvent, dirty map[string]string) error {
+func (s *syncer) flushLocal(ctx context.Context, w dirwatch.Watcher, fsEvents <-chan dirwatch.Event, dirty map[string]string) error {
 	for drained := false; !drained; {
 		select {
 		case ev, ok := <-fsEvents:
@@ -384,19 +385,19 @@ func (s *syncer) relFor(id string) string {
 
 // onFsEvent notes what a file system event touched. It reports true when
 // the change is better found by walking (a directory came or went).
-func (s *syncer) onFsEvent(w dirWatcher, ev watchEvent, dirty map[string]string) bool {
-	if ev.all {
+func (s *syncer) onFsEvent(w dirwatch.Watcher, ev dirwatch.Event, dirty map[string]string) bool {
+	if ev.All {
 		return true
 	}
-	rel, err := filepath.Rel(s.opt.dir, ev.path)
+	rel, err := filepath.Rel(s.opt.dir, ev.Path)
 	if err != nil || rel == "." || strings.HasPrefix(rel, "..") {
 		return false
 	}
 	rel = filepath.ToSlash(rel)
-	if internalName(filepath.Base(ev.path)) {
+	if internalName(filepath.Base(ev.Path)) {
 		return false
 	}
-	info, statErr := os.Lstat(ev.path)
+	info, statErr := os.Lstat(ev.Path)
 	if statErr == nil && info.IsDir() {
 		if s.excluded(rel, true) {
 			return false
@@ -404,10 +405,10 @@ func (s *syncer) onFsEvent(w dirWatcher, ev watchEvent, dirty map[string]string)
 		// A new directory, one changed (its mode), or one whose events were
 		// lost: watch it, and look at it and what it holds, without walking
 		// the rest of the tree.
-		w.add(ev.path)
+		w.Add(ev.Path)
 		dirty[s.identity(rel+"/")] = rel + "/"
-		s.walkNew(ev.path, dirty)
-		if ev.below {
+		s.walkNew(ev.Path, dirty)
+		if ev.Below {
 			s.dirtyBelow(rel, dirty)
 		}
 		return false
@@ -419,7 +420,7 @@ func (s *syncer) onFsEvent(w dirWatcher, ev watchEvent, dirty map[string]string)
 	// known below it, and stop watching it.
 	if statErr != nil {
 		s.dirtyBelow(rel, dirty)
-		w.remove(ev.path)
+		w.Remove(ev.Path)
 		dirty[s.identity(rel+"/")] = rel + "/"
 	}
 	dirty[s.identity(rel)] = rel
@@ -470,4 +471,29 @@ func (s *syncer) walkNew(dir string, dirty map[string]string) {
 		}
 		return nil
 	})
+}
+
+// newDirWatcher watches the synced directory: FSEvents on macOS, else
+// fsnotify. Folders that cannot be watched are reported once, with the
+// reason: changes in them are found by the full scan every rescanEvery.
+func (s *syncer) newDirWatcher() (dirwatch.Watcher, error) {
+	return dirwatch.New(s.watchOptions())
+}
+
+func (s *syncer) watchOptions() dirwatch.Options {
+	return dirwatch.Options{
+		Root:     s.opt.dir,
+		Excluded: s.excluded,
+		Label:    "knot.files.sync",
+		Warn: func(msg string, err error) {
+			s.log.WithError(err).Warn(msg)
+		},
+		Failed: func(dir string, err error) {
+			s.log.WithError(err).Debug("cannot watch folder", "dir", s.rel(dir))
+		},
+		Unwatched: func(failed, total int, firstErr error) {
+			s.warnOnce("watch-limit", "cannot watch every folder: changes in the others are found by a full scan every "+rescanEvery.String(),
+				"unwatched", failed, "of", total, "reason", dirwatch.LimitHint(firstErr, total))
+		},
+	}
 }

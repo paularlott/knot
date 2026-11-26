@@ -54,6 +54,10 @@ type WriteFileRequest struct {
 	// target instead of writing content. Used by knot mirror for symlinks.
 	SymlinkTarget string `json:"symlink_target,omitempty" msgpack:"symlink_target,omitempty"`
 
+	// RenameFrom, with Mode "rename", is the file moved to Path. Used by
+	// knot mirror to put a large upload in place in one step.
+	RenameFrom string `json:"rename_from,omitempty" msgpack:"rename_from,omitempty"`
+
 	// Sync metadata (optional). When set, the agent applies them after the
 	// write so the destination file matches the source's mtime and permission
 	// bits — used by knot sync tools (copy --recursive, watch).
@@ -72,6 +76,12 @@ type WriteFileResponse struct {
 // auditing is on. Paths and byte counts only — file contents never enter the
 // audit trail.
 func auditSpaceFileOp(r *http.Request, op, path string, success bool, size int64) {
+	auditSpaceFileOpFrom(r, op, "", path, success, size)
+}
+
+// auditSpaceFileOpFrom is auditSpaceFileOp for an operation with a source
+// path too, such as a rename; from is left out when empty.
+func auditSpaceFileOpFrom(r *http.Request, op, from, path string, success bool, size int64) {
 	cfg := config.GetServerConfig()
 	if cfg == nil || !cfg.Audit.FileOperations {
 		return
@@ -96,8 +106,13 @@ func auditSpaceFileOp(r *http.Request, op, path string, success bool, size int64
 	if size >= 0 {
 		props["size"] = size
 	}
+	what := path
+	if from != "" {
+		props["from"] = from
+		what = from + " to " + path
+	}
 	audit.LogWithRequest(r, user.Username, model.AuditActorTypeUser, model.AuditEventSpaceFileOp,
-		fmt.Sprintf("%s %s in space %s", op, path, space.Name), &props)
+		fmt.Sprintf("%s %s in space %s", op, what, space.Name), &props)
 }
 
 func HandleReadSpaceFile(w http.ResponseWriter, r *http.Request) {
@@ -270,7 +285,12 @@ func HandleWriteSpaceFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	switch req.Mode {
-	case "", "overwrite", "append", "prepend":
+	case "", "overwrite", "append", "prepend", "mkdir", "chmod":
+	case "rename":
+		if req.RenameFrom == "" {
+			rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "rename_from is required"})
+			return
+		}
 	default:
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "invalid mode: " + req.Mode})
 		return
@@ -326,6 +346,7 @@ func HandleWriteSpaceFile(w http.ResponseWriter, r *http.Request) {
 		MtimeNs:       req.MtimeNs,
 		FilePerm:      req.FilePerm,
 		SymlinkTarget: req.SymlinkTarget,
+		RenameFrom:    req.RenameFrom,
 	}
 
 	responseChannel, err := session.SendCopyFile(copyCmd)
@@ -348,12 +369,16 @@ func HandleWriteSpaceFile(w http.ResponseWriter, r *http.Request) {
 		Success: response.Success,
 	}
 
+	op := "write"
+	if req.Mode == "mkdir" || req.Mode == "chmod" || req.Mode == "rename" {
+		op = req.Mode
+	}
 	if !response.Success {
 		result.Error = response.Error
-		auditSpaceFileOp(r, "write", req.Path, false, -1)
+		auditSpaceFileOpFrom(r, op, req.RenameFrom, req.Path, false, -1)
 	} else {
 		result.BytesWritten = len(req.Content)
-		auditSpaceFileOp(r, "write", req.Path, true, int64(result.BytesWritten))
+		auditSpaceFileOpFrom(r, op, req.RenameFrom, req.Path, true, int64(result.BytesWritten))
 	}
 
 	rest.WriteResponse(http.StatusOK, w, r, result)

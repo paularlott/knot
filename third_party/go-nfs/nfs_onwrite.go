@@ -74,6 +74,7 @@ func onWrite(ctx context.Context, w *response, userHandle Handler) error {
 	}
 	if req.Offset > 0 {
 		if _, err := file.Seek(int64(req.Offset), io.SeekStart); err != nil {
+			_ = file.Close() // from upstream (19d471546678)
 			return &NFSStatusError{NFSStatusIO, err}
 		}
 	}
@@ -84,6 +85,7 @@ func onWrite(ctx context.Context, w *response, userHandle Handler) error {
 	writtenCount, err := file.Write(req.Data[:end])
 	if err != nil {
 		Log.Errorf("Error writing: %v", err)
+		_ = file.Close() // from upstream (19d471546678)
 		return &NFSStatusError{statusFromWriteError(err), err}
 	}
 	if err := file.Close(); err != nil {

@@ -644,6 +644,38 @@ func appleDouble(key string) string {
 	return dir + "._" + base
 }
 
+// movedError is a write to a file renamed here since its handle was looked
+// up: it belongs to the file where it went.
+type movedError struct{ to string }
+
+func (e *movedError) Error() string { return "moved to " + e.to }
+
+// movedAway reports, for a write to a file that is not there, whether it
+// was renamed or removed here since the write's handle was looked up (NFS
+// calls race: a WRITE can look its file up, then a RENAME of it finish,
+// before the write is made). Such a write must not make a new file at the
+// old path: it goes to the file where it went, as the handle would have
+// found it, when that is still the same file (by its inode number), and is
+// refused as stale otherwise. nil means nothing here moved it.
+func (fs *storeFS) movedAway(bucket, key string) error {
+	to, ino, found := fs.moved.firstMove(bucket+"/"+key, time.Now())
+	if !found {
+		return nil
+	}
+	stale := &nfs.NFSStatusError{NFSStatus: nfs.NFSStatusStale, WrappedErr: os.ErrNotExist}
+	if to == "" {
+		return stale
+	}
+	fi, err := fs.Stat(to)
+	if err != nil || fi.IsDir() {
+		return stale
+	}
+	if info, ok := fi.(*fileInfo); ok && ino != 0 && info.ino != 0 && info.ino != ino {
+		return stale // another file is there now
+	}
+	return &movedError{to: to}
+}
+
 // newIno is a new inode number for metaIno.
 // folderIno is the inode number of a folder: the one it shows with no
 // marker, so making a marker keeps it, and two clients or two servers making
@@ -985,7 +1017,15 @@ func (fs *storeFS) OpenFile(name string, flag int, perm os.FileMode) (billy.File
 		}
 	}
 
-	return &file{fs: fs, name: name, bucket: bucket, key: key}, nil
+	f := &file{fs: fs, name: name, bucket: bucket, key: key}
+	if writable && exists && flag&os.O_TRUNC == 0 {
+		// A write on its way to a file that is there: a rename of it waits
+		// for it (see staging.startWrite).
+		if k := bucketKey(bucket, key); fs.staging.startWrite(k) {
+			f.writeKey = k
+		}
+	}
+	return f, nil
 }
 
 func (fs *storeFS) Remove(name string) error {
@@ -1131,7 +1171,10 @@ func (fs *storeFS) Rename(from, to string) error {
 	}
 
 	// Moves work on saved files: save what is staged below the source and
-	// drop anything staged at the destination, which is being replaced.
+	// drop anything staged at the destination, which is being replaced. No
+	// new copy of the source is made until the move is done (see moving).
+	done := fs.staging.beginMove(bucketKey(fb, fk), bucketKey(fb, fk+"/"))
+	defer done()
 	if err := fs.staging.flushUnder(bucketKey(fb, fk), bucketKey(fb, fk+"/")); err != nil {
 		return pathErr("rename", from, err)
 	}
@@ -1207,6 +1250,18 @@ func (fs *storeFS) Commit(name string) error {
 		return nil
 	}
 	err := fs.staging.flushUnder(bucketKey(bucket, key), "")
+	// A file renamed here since the commit's handle was looked up (a stable
+	// WRITE commits by the path it found before writing) has its writes
+	// staged where it went (see movedAway): they are saved now too, as the
+	// client is told they are.
+	if err == nil && fs.staging.get(bucket, key) == nil {
+		if _, serr := fs.Stat(name); errors.Is(serr, os.ErrNotExist) {
+			if to, found := fs.moved.find(name, 0, time.Now()); found && to != "" {
+				tb, tk := split(to)
+				err = fs.staging.flushUnder(bucketKey(tb, tk), "")
+			}
+		}
+	}
 	// Writes dropped since the last commit, refused by the server, are
 	// reported now, once; by this commit's error, if it is why.
 	dropped := fs.staging.failure(bucket, key, true)
@@ -1382,6 +1437,17 @@ type file struct {
 	name        string
 	bucket, key string
 	offset      int64
+	// writeKey is the bucketKey of a write counted as on its way to the
+	// file (see staging.startWrite), "" for none or once it is made.
+	writeKey string
+}
+
+// endWrite notes that the file's counted write is made, or will not be.
+func (f *file) endWrite() {
+	if f.writeKey != "" {
+		f.fs.staging.endWrite(f.writeKey)
+		f.writeKey = ""
+	}
 }
 
 func (f *file) Name() string { return f.name }
@@ -1440,7 +1506,8 @@ func (f *file) Read(b []byte) (int, error) {
 }
 
 func (f *file) Write(b []byte) (int, error) {
-	e, err := f.fs.staging.open(f.bucket, f.key, loadContent)
+	defer f.endWrite()
+	e, err := f.openStaged(loadContent)
 	if err != nil {
 		return 0, pathErr("write", f.name, err)
 	}
@@ -1448,6 +1515,21 @@ func (f *file) Write(b []byte) (int, error) {
 	e.mu.Unlock()
 	f.offset += int64(n)
 	return n, err
+}
+
+// openStaged opens the file's staged copy for a change, following the file
+// to where it went if it was renamed here since it was opened (see
+// movedAway).
+func (f *file) openStaged(load loadMode) (*dirtyFile, error) {
+	for hop := 0; ; hop++ {
+		e, err := f.fs.staging.openFor(f.bucket, f.key, load, true, f.writeKey != "")
+		var mv *movedError
+		if !errors.As(err, &mv) || hop >= movesHops {
+			return e, err
+		}
+		f.name = mv.to
+		f.bucket, f.key = split(mv.to)
+	}
 }
 
 func (f *file) Seek(offset int64, whence int) (int64, error) {
@@ -1467,11 +1549,12 @@ func (f *file) Seek(offset int64, whence int) (int64, error) {
 }
 
 func (f *file) Truncate(size int64) error {
+	defer f.endWrite()
 	load := loadAttrs
 	if size > 0 {
 		load = loadContent
 	}
-	e, err := f.fs.staging.open(f.bucket, f.key, load)
+	e, err := f.openStaged(load)
 	if err != nil {
 		return pathErr("truncate", f.name, err)
 	}
@@ -1481,4 +1564,4 @@ func (f *file) Truncate(size int64) error {
 
 func (f *file) Lock() error   { return nil }
 func (f *file) Unlock() error { return nil }
-func (f *file) Close() error  { return nil }
+func (f *file) Close() error  { f.endWrite(); return nil }

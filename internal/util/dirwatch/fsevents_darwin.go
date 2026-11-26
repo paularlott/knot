@@ -1,6 +1,6 @@
 //go:build darwin
 
-package command_files
+package dirwatch
 
 import (
 	"errors"
@@ -18,15 +18,15 @@ import (
 // tree, however large, where kqueue would need an open file for every file.
 // It is reached through goffi, as the knot command is built without cgo.
 
-// newDirWatcher watches the directory with FSEvents, or fsnotify when FSEvents
+// newPlatform watches the directory with FSEvents, or fsnotify when FSEvents
 // cannot be started.
-func newDirWatcher(s *syncer) (dirWatcher, error) {
-	w, err := newFSEventsWatcher(s)
+func newPlatform(opt Options) (Watcher, error) {
+	w, err := newFSEventsWatcher(opt)
 	if err == nil {
 		return w, nil
 	}
-	s.log.WithError(err).Warn("cannot use FSEvents: watching each folder instead")
-	return newNotifyWatcher(s)
+	opt.warn("cannot use FSEvents: watching each folder instead", err)
+	return NewNotify(opt)
 }
 
 // FSEvents constants, from CoreServices' FSEvents.h.
@@ -146,25 +146,25 @@ func call(cif *types.CallInterface, fn unsafe.Pointer, ret unsafe.Pointer, args 
 
 // fseventsWatcher watches a tree with one FSEvents stream.
 type fseventsWatcher struct {
-	s      *syncer
+	opt    Options
 	id     uintptr
 	stream unsafe.Pointer
 	queue  unsafe.Pointer
-	ch     chan watchEvent
+	ch     chan Event
 	lost   atomic.Bool
 	once   sync.Once
 }
 
-func newFSEventsWatcher(s *syncer) (*fseventsWatcher, error) {
+func newFSEventsWatcher(opt Options) (*fseventsWatcher, error) {
 	if err := loadFSEvents(); err != nil {
 		return nil, err
 	}
 	streamsMu.Lock()
 	streamSeq++
-	w := &fseventsWatcher{s: s, id: streamSeq, ch: make(chan watchEvent, 8192)}
+	w := &fseventsWatcher{opt: opt, id: streamSeq, ch: make(chan Event, 8192)}
 	streams[w.id] = w
 	streamsMu.Unlock()
-	if err := w.start(s.opt.dir); err != nil {
+	if err := w.start(opt.Root); err != nil {
 		streamsMu.Lock()
 		delete(streams, w.id)
 		streamsMu.Unlock()
@@ -212,7 +212,11 @@ func (w *fseventsWatcher) start(dir string) error {
 	}
 	runtime.KeepAlive(ctx)
 
-	label := cstr("knot.files.sync")
+	name := w.opt.Label
+	if name == "" {
+		name = "knot.dirwatch"
+	}
+	label := cstr(name)
 	labelPtr := unsafe.Pointer(&label[0])
 	if err := call(&fsev.cifPtr2, fsev.queueCreate, unsafe.Pointer(&w.queue),
 		unsafe.Pointer(&labelPtr), unsafe.Pointer(&null)); err != nil || w.queue == nil {
@@ -251,12 +255,12 @@ func (w *fseventsWatcher) releaseStream() {
 	}
 }
 
-func (w *fseventsWatcher) add(string)                {} // the stream covers the whole tree
-func (w *fseventsWatcher) remove(string)             {}
-func (w *fseventsWatcher) events() <-chan watchEvent { return w.ch }
-func (w *fseventsWatcher) takeLost() bool            { return w.lost.Swap(false) }
+func (w *fseventsWatcher) Add(string)           {} // the stream covers the whole tree
+func (w *fseventsWatcher) Remove(string)        {}
+func (w *fseventsWatcher) Events() <-chan Event { return w.ch }
+func (w *fseventsWatcher) TakeLost() bool       { return w.lost.Swap(false) }
 
-func (w *fseventsWatcher) close() {
+func (w *fseventsWatcher) Close() {
 	w.once.Do(func() {
 		w.releaseStream()
 		streamsMu.Lock()
@@ -267,7 +271,7 @@ func (w *fseventsWatcher) close() {
 
 // send passes an event on, never blocking FSEvents' thread: when the
 // channel is full the events are lost, and everything is looked at.
-func (w *fseventsWatcher) send(ev watchEvent) {
+func (w *fseventsWatcher) send(ev Event) {
 	select {
 	case w.ch <- ev:
 	default:
@@ -291,9 +295,9 @@ func fseventsCallback(stream unsafe.Pointer, info uintptr, n uintptr, paths unsa
 		f := flagList[i]
 		switch {
 		case f&(fsevUserDropped|fsevKernelDropped|fsevIdsWrapped|fsevRootChanged) != 0:
-			w.send(watchEvent{all: true})
+			w.send(Event{All: true})
 		default:
-			w.send(watchEvent{path: goString(pathList[i]), below: f&fsevMustScanSubDirs != 0})
+			w.send(Event{Path: goString(pathList[i]), Below: f&fsevMustScanSubDirs != 0})
 		}
 	}
 }

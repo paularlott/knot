@@ -416,17 +416,36 @@ func mountCommand(ctx context.Context, port int, dir string) *exec.Cmd {
 	return exec.CommandContext(ctx, "mount_nfs", "-o", "vers=4,tcp,port="+p, "127.0.0.1:/", dir)
 }
 
+// unmountWait is how long an unmount is waited for.
+const unmountWait = 30 * time.Second
+
 // unmount unmounts dir, forcing it if it is busy or its server is gone.
 // Never diskutil: given a folder that is no longer a mount point, diskutil
 // unmounts the volume holding it instead, which ejected the disk
 // KNOT_TEST_FILES_ROOT was on.
+//
+// Each command is given unmountWait: a forced unmount on macOS can stick in
+// the kernel for good, and the test goes on without waiting for it.
 func unmount(dir string) error {
 	run := func(args ...string) error {
+		var cmd *exec.Cmd
 		if runtime.GOOS == "linux" {
-			args = append([]string{"-n"}, args...)
-			return exec.Command("sudo", args...).Run()
+			cmd = exec.Command("sudo", append([]string{"-n"}, args...)...)
+		} else {
+			cmd = exec.Command(args[0], args[1:]...)
 		}
-		return exec.Command(args[0], args[1:]...).Run()
+		if err := cmd.Start(); err != nil {
+			return err
+		}
+		done := make(chan error, 1)
+		go func() { done <- cmd.Wait() }()
+		select {
+		case err := <-done:
+			return err
+		case <-time.After(unmountWait):
+			cmd.Process.Kill()
+			return fmt.Errorf("%s: still running after %s", strings.Join(args, " "), unmountWait)
+		}
 	}
 	if err := run("umount", dir); err != nil {
 		if runtime.GOOS == "linux" {

@@ -1,6 +1,6 @@
 module github.com/willscott/go-nfs
 
-go 1.19
+go 1.25.0
 
 require (
 	github.com/go-git/go-billy/v5 v5.6.0

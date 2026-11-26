@@ -44,6 +44,17 @@ func TestSpaceFileRequestsReachServer(t *testing.T) {
 		{"symlink", "/files/write", func() any { return &api.WriteFileRequest{} },
 			func(c *apiclient.ApiClient) { c.CreateSymlinkSpaceFile(context.Background(), "sp", "/l", "target") },
 			&api.WriteFileRequest{Path: "/l", SymlinkTarget: "target"}},
+		{"mkdir", "/files/write", func() any { return &api.WriteFileRequest{} },
+			func(c *apiclient.ApiClient) { c.MakeSpaceDir(context.Background(), "sp", "/d", 0700) },
+			&api.WriteFileRequest{Path: "/d", Mode: "mkdir", FilePerm: 0700}},
+		{"chmod", "/files/write", func() any { return &api.WriteFileRequest{} },
+			func(c *apiclient.ApiClient) { c.ChmodSpaceFile(context.Background(), "sp", "/x.sh", 0755) },
+			&api.WriteFileRequest{Path: "/x.sh", Mode: "chmod", FilePerm: 0755}},
+		{"rename", "/files/write", func() any { return &api.WriteFileRequest{} },
+			func(c *apiclient.ApiClient) {
+				c.RenameSpaceFile(context.Background(), "sp", "/.f.tmp", "/f", 123, 0640)
+			},
+			&api.WriteFileRequest{Path: "/f", Mode: "rename", RenameFrom: "/.f.tmp", MtimeNs: 123, FilePerm: 0640}},
 		{"run", "/run-command", func() any { return &api.RunCommandRequest{} },
 			func(c *apiclient.ApiClient) {
 				c.RunCommand(context.Background(), "sp", &apiclient.RunCommandRequest{Command: "ls", Args: []string{"-l"}, Timeout: 5, Workdir: "/w"})

@@ -308,6 +308,144 @@ func TestSpaceMirrorRoundTrip(t *testing.T) {
 	mustContain(t, "line range", stdout, "<h1>changed</h1>")
 }
 
+// TestSpaceMirrorFoldersAndWatch mirrors with the real knot command and
+// agent: empty folders and folder modes go both ways, a symlink replaced by
+// a file is replaced in the space rather than written through, no temporary
+// upload is left behind, and --watch sends new files, new empty folders and
+// deletes, then exits on Ctrl+C.
+func TestSpaceMirrorFoldersAndWatch(t *testing.T) {
+	harness.Feature(t, "files")
+	id := workspace(t)
+	ctx, cancel := testCtx(300)
+	defer cancel()
+
+	home := strings.TrimSpace(harness.RunCommand(t, user1.Client, id, 30, "pwd"))
+	dir := home + "/it-mirror-dirs"
+	remote := "it-wh:" + dir
+	stat := func(rel string) string {
+		t.Helper()
+		return strings.TrimSpace(harness.RunCommand(t, user1.Client, id, 30, "sh", "-c", "stat -c '%a %F' "+dir+"/"+rel+" 2>/dev/null || echo missing"))
+	}
+
+	// A file the space's symlink points at, which the push must not touch.
+	if err := user1.Client.WriteSpaceFile(ctx, id, dir+"-target.txt", "keep me"); err != nil {
+		t.Fatal(err)
+	}
+	if err := user1.Client.CreateSymlinkSpaceFile(ctx, id, dir+"/conf", dir+"-target.txt"); err != nil {
+		t.Fatal(err)
+	}
+
+	src := t.TempDir()
+	os.MkdirAll(filepath.Join(src, "empty", "inner"), 0755)
+	os.MkdirAll(filepath.Join(src, "private"), 0755)
+	os.WriteFile(filepath.Join(src, "private", "key.txt"), []byte("k"), 0600)
+	os.Chmod(filepath.Join(src, "private"), 0700)
+	os.MkdirAll(filepath.Join(src, "sealed"), 0755)
+	os.WriteFile(filepath.Join(src, "sealed", "in.txt"), []byte("sealed in"), 0644)
+	os.Chmod(filepath.Join(src, "sealed"), 0555) // filled, then made read-only
+	t.Cleanup(func() { os.Chmod(filepath.Join(src, "sealed"), 0755) })
+	os.WriteFile(filepath.Join(src, "conf"), []byte("a real file"), 0644)
+	big := bytes.Repeat([]byte("0123456789abcdef"), 600*1024) // ~9.4 MB: several pieces
+	os.WriteFile(filepath.Join(src, "big.bin"), big, 0644)
+
+	mustKnot(t, "space", "mirror", src, remote)
+	mustEqual(t, "empty/inner", stat("empty/inner"), "755 directory")
+	mustEqual(t, "private", stat("private"), "700 directory")
+	mustEqual(t, "sealed", stat("sealed"), "555 directory")
+	mustEqual(t, "sealed/in.txt", stat("sealed/in.txt"), "644 regular file")
+	mustEqual(t, "conf", stat("conf"), "644 regular file")
+	target, _ := user1.Client.ReadSpaceFile(ctx, id, dir+"-target.txt")
+	mustEqual(t, "symlink target", target, "keep me")
+	got, err := user1.Client.ReadSpaceFile(ctx, id, dir+"/big.bin")
+	if err != nil || got != string(big) {
+		t.Errorf("big.bin: %d bytes, err %v, want %d", len(got), err, len(big))
+	}
+	left, err := user1.Client.Find(ctx, id, apiclient.FindRequest{Path: dir, Recursive: true, IncludeHidden: true, Name: "*.knot-upload"})
+	if err != nil || len(left.Paths) != 0 {
+		t.Errorf("temporary uploads left: %v (err %v)", left.Paths, err)
+	}
+	_, stderr := mustKnot(t, "space", "mirror", src, remote)
+	mustContain(t, "second push", stderr, "0 uploaded")
+
+	// Back down: the empty folder and the folder's mode come too.
+	dst := filepath.Join(t.TempDir(), "copy")
+	t.Cleanup(func() { os.Chmod(filepath.Join(dst, "sealed"), 0755) })
+	mustKnot(t, "space", "mirror", remote, dst)
+	if b, err := os.ReadFile(filepath.Join(dst, "sealed", "in.txt")); err != nil || string(b) != "sealed in" {
+		t.Errorf("pulled sealed/in.txt: %q %v", b, err)
+	}
+	for rel, want := range map[string]os.FileMode{"empty/inner": 0755, "private": 0700, "sealed": 0555} {
+		info, err := os.Stat(filepath.Join(dst, filepath.FromSlash(rel)))
+		if err != nil || !info.IsDir() || info.Mode().Perm() != want {
+			t.Errorf("pulled %s: %v, want a folder of mode %o", rel, err, want)
+		}
+	}
+
+	// A file made executable: its mode is set in the space.
+	os.Chmod(filepath.Join(src, "conf"), 0755)
+	_, stderr = mustKnot(t, "space", "mirror", src, remote)
+	mustContain(t, "chmod push", stderr, "1 uploaded")
+	mustEqual(t, "conf after chmod", stat("conf"), "755 regular file")
+
+	// Later changes inside a folder already read-only in the space: the
+	// agent opens it for them and gives it back its mode.
+	sealed := filepath.Join(src, "sealed")
+	os.Chmod(sealed, 0755)
+	os.WriteFile(filepath.Join(sealed, "added.txt"), []byte("added"), 0644)
+	os.Remove(filepath.Join(sealed, "in.txt"))
+	os.Chmod(sealed, 0555)
+	_, stderr = mustKnot(t, "space", "mirror", src, remote)
+	mustContain(t, "push into a read-only folder", stderr, "0 failed")
+	mustEqual(t, "sealed/added.txt", stat("sealed/added.txt"), "644 regular file")
+	mustEqual(t, "sealed/in.txt", stat("sealed/in.txt"), "missing")
+	mustEqual(t, "sealed after", stat("sealed"), "555 directory")
+	// And the read-only folder removed altogether.
+	os.Chmod(sealed, 0755)
+	os.RemoveAll(sealed)
+	_, stderr = mustKnot(t, "space", "mirror", src, remote)
+	mustContain(t, "remove a read-only folder", stderr, "0 failed")
+	mustEqual(t, "sealed removed", stat("sealed"), "missing")
+
+	// --watch: a new file, a new empty folder and a delete reach the space.
+	cmd := exec.Command(bins.Server, "space", "mirror", "--watch", src, remote, "--server", server.BaseURL, "--token", user1.Token)
+	cmd.Dir = t.TempDir()
+	cmd.Env = append(os.Environ(), "HOME="+cmd.Dir)
+	var out bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &out, &out
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	waited := make(chan error, 1)
+	go func() { waited <- cmd.Wait() }()
+	defer cmd.Process.Kill()
+	time.Sleep(3 * time.Second) // the initial mirror, then watching
+
+	os.WriteFile(filepath.Join(src, "new.txt"), []byte("watched"), 0644)
+	os.Mkdir(filepath.Join(src, "new-empty"), 0750)
+	os.Remove(filepath.Join(src, "conf"))
+	deadline := time.Now().Add(30 * time.Second)
+	for {
+		content, _ := user1.Client.ReadSpaceFile(ctx, id, dir+"/new.txt")
+		if content == "watched" && stat("new-empty") == "750 directory" && stat("conf") == "missing" {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("watch did not send the changes: new.txt %q, new-empty %s, conf %s\n%s", content, stat("new-empty"), stat("conf"), out.String())
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+
+	cmd.Process.Signal(os.Interrupt)
+	select {
+	case <-waited:
+	case <-time.After(15 * time.Second):
+		t.Fatalf("watch did not stop on Ctrl+C:\n%s", out.String())
+	}
+	harness.RunCommand(t, user1.Client, id, 30, "chmod", "-R", "u+w", dir)
+	user1.Client.DeleteSpaceFile(ctx, id, apiclient.DeleteFileRequest{Path: dir, Recursive: true})
+	user1.Client.DeleteSpaceFile(ctx, id, apiclient.DeleteFileRequest{Path: dir + "-target.txt"})
+}
+
 func keys(m map[string]string) []string {
 	out := make([]string, 0, len(m))
 	for k := range m {

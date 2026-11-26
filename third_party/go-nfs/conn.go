@@ -11,6 +11,7 @@ import (
 	"net"
 	"runtime/debug"
 	"sync"
+	"time"
 
 	xdr2 "github.com/rasky/go-xdr/xdr2"
 	"github.com/willscott/go-nfs-client/nfs/rpc"
@@ -42,12 +43,94 @@ const (
 type conn struct {
 	*Server
 	net.Conn
+	// cancel ends the connection: it cancels the context its requests are
+	// handled with, which closes the network connection.
+	cancel context.CancelFunc
+
+	// idleMu guards idle, which is true while the connection waits for its
+	// next request, so Shutdown can interrupt the read without cutting off
+	// a request.
+	idleMu sync.Mutex
+	idle   bool
 
 	// knot: replies are written by the handler that made them, one at a
 	// time under writeMu, rather than handed to a goroutine that wrote
 	// them: that hand-off was a goroutine wake-up per reply.
 	writeMu sync.Mutex
 	out     *bufio.Writer
+
+	// knot: requests handled concurrently can be made out of the order the
+	// client sent them. A client writes a file and renames it without
+	// waiting between (a save to a temporary name, renamed over the real
+	// one), so the rename could move the file before the writes reached it,
+	// and others read it without them. A rename or remove waits for the
+	// requests read before it on the connection (see waitEarlier).
+	orderMu  sync.Mutex
+	ordered  *sync.Cond
+	nextSeq  uint64
+	inflight map[uint64]struct{}
+}
+
+// knot: earlierWait bounds how long a request waits for those before it.
+const earlierWait = 10 * time.Second
+
+// startRequest numbers a request as it is read and notes it in flight.
+func (c *conn) startRequest() uint64 {
+	c.orderMu.Lock()
+	defer c.orderMu.Unlock()
+	if c.inflight == nil {
+		c.inflight = map[uint64]struct{}{}
+		c.ordered = sync.NewCond(&c.orderMu)
+	}
+	c.nextSeq++
+	c.inflight[c.nextSeq] = struct{}{}
+	return c.nextSeq
+}
+
+// endRequest notes a request handled.
+func (c *conn) endRequest(seq uint64) {
+	c.orderMu.Lock()
+	delete(c.inflight, seq)
+	c.orderMu.Unlock()
+	c.ordered.Broadcast()
+}
+
+// earlierLocked reports whether a request read before seq is still being
+// handled; c.orderMu is held.
+func (c *conn) earlierLocked(seq uint64) bool {
+	for s := range c.inflight {
+		if s < seq {
+			return true
+		}
+	}
+	return false
+}
+
+// waitEarlier waits, for up to earlierWait, until the requests read before
+// this one on its connection are handled. A no-op for requests not handled
+// concurrently.
+func (w *response) waitEarlier() {
+	if w == nil || w.conn == nil || w.seq == 0 {
+		return
+	}
+	c := w.conn
+	c.orderMu.Lock()
+	defer c.orderMu.Unlock()
+	if !c.earlierLocked(w.seq) {
+		return
+	}
+	timer := time.AfterFunc(earlierWait, c.ordered.Broadcast)
+	defer timer.Stop()
+	deadline := time.Now().Add(earlierWait)
+	for c.earlierLocked(w.seq) && time.Now().Before(deadline) {
+		c.ordered.Wait()
+	}
+}
+
+// Close closes the network connection. Server and net.Conn both have a
+// Close method; this one keeps conn a net.Conn for Handler.Mount.
+func (c *conn) Close() error {
+	return c.Conn.Close()
 }
 
 // maxRequestFragmentBytes rejects implausible record-marking lengths before a
@@ -55,45 +138,69 @@ type conn struct {
 // wsize at 1 MiB, so real requests stay well under this.
 const maxRequestFragmentBytes = 16 << 20
 
-func (c *conn) serve(ctx context.Context) {
-	connCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
+// RFC 5531 section 8.2 limits each opaque_auth body to 400 bytes.
+const maxAuthBytes = 400
 
-	if c.Server.ConcurrentHandlers > 1 {
-		c.serveConcurrently(connCtx, cancel, c.Server.ConcurrentHandlers)
-		return
-	}
+// serve handles requests from the connection until it closes, the server
+// shuts down, or ctx ends.
+//
+// When the client closes the connection or the server shuts down
+// gracefully, the requests already read are still answered before the
+// connection is closed. Any other failure cancels them and closes the
+// connection at once. Either way, serve returns only after every goroutine
+// it started has finished.
+func (c *conn) serve(ctx context.Context) {
+	defer c.cancel()
+	// Closing the connection is what unblocks reads and writes, so do it as
+	// soon as ctx ends.
+	closeConn := sync.OnceFunc(func() { _ = c.Conn.Close() })
+	stop := context.AfterFunc(ctx, closeConn)
+	defer func() {
+		stop()
+		closeConn()
+	}()
 
 	c.out = bufio.NewWriter(c.Conn)
+	var handlers sync.WaitGroup
+	var graceful bool
+	if limit := c.Server.ConcurrentHandlers; limit > 1 {
+		graceful = c.readConcurrently(ctx, &handlers, limit)
+	} else {
+		graceful = c.readSequentially(ctx)
+	}
+	if !graceful {
+		c.cancel()
+	}
+	handlers.Wait()
+}
+
+// readSequentially handles requests one at a time, in order. It reports
+// whether the connection ended gracefully, so replies still to be made
+// should be sent.
+func (c *conn) readSequentially(ctx context.Context) bool {
 	bio := bufio.NewReader(c.Conn)
 	for {
-		w, err := c.readRequestHeader(connCtx, bio)
-		if err != nil {
-			if err == io.EOF {
-				// Clean close.
-				c.Close()
-				return
-			}
-			return
+		w, ok, graceful := c.nextRequest(ctx, bio)
+		if !ok {
+			return graceful
 		}
-		Log.Tracef("request: %v", w.req)
-		err = c.handle(connCtx, w)
-		respErr := w.finish(connCtx)
+		err := c.handle(ctx, w)
+		respErr := w.finish(ctx)
 		if err != nil {
 			Log.Errorf("error handling req: %v", err)
 			// failure to handle at a level needing to close the connection.
-			c.Close()
-			return
+			return false
 		}
 		if respErr != nil {
-			Log.Errorf("error sending response: %v", respErr)
-			c.Close()
-			return
+			if respErr != context.Canceled {
+				Log.Errorf("error sending response: %v", respErr)
+			}
+			return false
 		}
 	}
 }
 
-// serveConcurrently handles up to limit requests from the connection at once.
+// readConcurrently handles up to limit requests from the connection at once.
 // Linux clients multiplex every process's I/O on a mount over one TCP
 // connection, so handling requests one at a time lets a single slow
 // operation stall the whole mount. RPC replies carry the request's XID, so
@@ -101,53 +208,92 @@ func (c *conn) serve(ctx context.Context) {
 //
 // Each request body is read into memory before its handler starts, so the
 // loop can read the next request while earlier ones are still running.
-func (c *conn) serveConcurrently(ctx context.Context, cancel context.CancelFunc, limit int) {
-	c.out = bufio.NewWriter(c.Conn)
+// Handlers run in handlers; the caller waits for them.
+func (c *conn) readConcurrently(ctx context.Context, handlers *sync.WaitGroup, limit int) bool {
 	sem := make(chan struct{}, limit)
-	var wg sync.WaitGroup
-	defer wg.Wait()
-
 	bio := bufio.NewReader(c.Conn)
 	for {
-		w, err := c.readRequestHeader(ctx, bio)
-		if err != nil {
-			// A clean close, or a request that can't be framed: either way
-			// nothing more can be read from this connection.
-			c.Close()
-			return
+		w, ok, graceful := c.nextRequest(ctx, bio)
+		if !ok {
+			return graceful
 		}
-		Log.Tracef("request: %v", w.req)
 		if err := w.bufferBody(); err != nil {
 			Log.Errorf("error reading request body: %v", err)
-			c.Close()
-			return
+			return false
 		}
 
 		select {
 		case sem <- struct{}{}:
 		case <-ctx.Done():
-			return
+			return false
 		}
-		wg.Add(1)
-		go func(w *response) {
-			defer wg.Done()
+		w.seq = c.startRequest() // knot: see waitEarlier
+		handlers.Go(func() {
 			defer func() { <-sem }()
+			defer c.endRequest(w.seq)
 
 			err := c.handle(ctx, w)
 			respErr := w.finish(ctx)
 			if err != nil {
 				Log.Errorf("error handling req: %v", err)
 				// failure to handle at a level needing to close the connection.
-				cancel()
-				c.Close()
+				c.cancel()
 				return
 			}
 			if respErr != nil && respErr != context.Canceled {
 				Log.Errorf("error sending response: %v", respErr)
-				cancel()
-				c.Close()
+				c.cancel()
 			}
-		}(w)
+		})
+	}
+}
+
+// nextRequest reads the header of the next request. When there is none, ok
+// is false, and graceful reports whether the connection ended cleanly: the
+// client closed it, or the server is shutting down.
+func (c *conn) nextRequest(ctx context.Context, bio *bufio.Reader) (w *response, ok, graceful bool) {
+	if !c.setIdle(true) {
+		return nil, false, true
+	}
+	w, err := c.readRequestHeader(ctx, bio)
+	c.setIdle(false)
+	if err != nil {
+		// A clean close, or a request that can't be framed: either way
+		// nothing more can be read from this connection.
+		return nil, false, err == io.EOF || c.Server.inShutdown.Load()
+	}
+	Log.Tracef("request: %v", w.req)
+	return w, true, false
+}
+
+// setIdle marks whether the connection is waiting for its next request.
+// Marking it idle fails once the server is shutting down: the connection
+// should take no new requests.
+func (c *conn) setIdle(idle bool) bool {
+	c.idleMu.Lock()
+	defer c.idleMu.Unlock()
+	if idle && c.Server.inShutdown.Load() {
+		return false
+	}
+	c.idle = idle
+	if !idle && c.Server.inShutdown.Load() {
+		// Shutdown may have interrupted the read just as a request arrived.
+		// Let the rest of it be read.
+		_ = c.Conn.SetReadDeadline(time.Time{})
+	}
+	return true
+}
+
+// interruptIdleRead ends the wait for the next request if the connection is
+// waiting for one, for Shutdown. A connection handling a request is left to
+// finish it; it then sees the shutdown and takes no more.
+func (c *conn) interruptIdleRead() {
+	c.idleMu.Lock()
+	defer c.idleMu.Unlock()
+	if c.idle {
+		// A deadline in the past fails the pending read without closing
+		// the connection, so replies can still be written.
+		_ = c.Conn.SetReadDeadline(time.Unix(1, 0))
 	}
 }
 
@@ -266,6 +412,7 @@ type response struct {
 	err       error
 	errorFmt  func(error) RPCError
 	req       *request
+	seq       uint64 // knot: the order the request was read in, see waitEarlier
 }
 
 func (w *response) writeXdrHeader() error {
@@ -355,7 +502,8 @@ func (w *response) drain(ctx context.Context) error {
 		if reader.N == 0 {
 			return nil
 		}
-		// todo: wrap body in a context reader.
+		// Ending the connection's context closes the connection, which
+		// unblocks this read.
 		_, err := io.CopyN(io.Discard, w.req.Body, reader.N)
 		if err == nil || err == io.EOF {
 			return nil
@@ -410,7 +558,9 @@ func (c *conn) readRequestHeader(ctx context.Context, reader *bufio.Reader) (w *
 		rpc.Header{},
 		&r,
 	}
-	if err = xdr.Read(&r, &req.Header); err != nil {
+	// Limit authentication lengths before the decoder allocates their bodies.
+	// The record's LimitedReader bounds reads, but not XDR allocations.
+	if _, err = xdr2.UnmarshalLimited(&r, &req.Header, maxAuthBytes); err != nil {
 		return nil, err
 	}
 

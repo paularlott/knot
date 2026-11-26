@@ -262,9 +262,11 @@ func (s *SetFileAttributes) Apply(changer billy.Change, fs billy.Filesystem, fil
 			return err
 		}
 		if *s.SetSize > math.MaxInt64 {
+			_ = fp.Close() // from upstream (19d471546678)
 			return &NFSStatusError{NFSStatusInval, os.ErrInvalid}
 		}
 		if err := fp.Truncate(int64(*s.SetSize)); err != nil {
+			_ = fp.Close() // from upstream (19d471546678)
 			return err
 		}
 		if err := fp.Close(); err != nil {

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/internal/agentapi/msg"
+	"github.com/paularlott/knot/internal/util/writedir"
 
 	"github.com/paularlott/knot/internal/log"
 )
@@ -49,11 +50,13 @@ func handleCopyToSpace(copyCmd msg.CopyFileMessage) msg.CopyFileResponse {
 	// at the destination first (os.Symlink fails on EEXIST).
 	if copyCmd.SymlinkTarget != "" {
 		destDir := filepath.Dir(destPath)
-		if err := os.MkdirAll(destDir, 0755); err != nil {
+		if err := writedir.MkdirAll(destDir, 0755); err != nil {
 			return msg.CopyFileResponse{Success: false, Error: "Failed to create directory: " + err.Error()}
 		}
-		os.Remove(destPath) // ignore error — might not exist
-		if err := os.Symlink(copyCmd.SymlinkTarget, destPath); err != nil {
+		if err := writedir.In(func() error {
+			os.Remove(destPath) // ignore error — might not exist
+			return os.Symlink(copyCmd.SymlinkTarget, destPath)
+		}, destDir); err != nil {
 			logger.Error("failed to create symlink", "error", err, "dest", destPath, "target", copyCmd.SymlinkTarget)
 			return msg.CopyFileResponse{Success: false, Error: "Failed to create symlink: " + err.Error()}
 		}
@@ -61,9 +64,64 @@ func handleCopyToSpace(copyCmd msg.CopyFileMessage) msg.CopyFileResponse {
 		return msg.CopyFileResponse{Success: true}
 	}
 
+	switch copyCmd.Mode {
+	case "mkdir":
+		// A folder, made with its parents; FilePerm then sets its mode.
+		if err := writedir.MkdirAll(destPath, 0755); err != nil {
+			return msg.CopyFileResponse{Success: false, Error: "Failed to create directory: " + err.Error()}
+		}
+		if copyCmd.FilePerm != 0 {
+			if err := os.Chmod(destPath, os.FileMode(copyCmd.FilePerm)); err != nil {
+				return msg.CopyFileResponse{Success: false, Error: "Failed to set directory mode: " + err.Error()}
+			}
+		}
+		return msg.CopyFileResponse{Success: true}
+
+	case "chmod":
+		// Only the permission bits (and mtime, when given) of a path that
+		// is there: a mode change without sending the content again. A
+		// symlink is left alone, as chmod would change what it points at.
+		info, err := os.Lstat(destPath)
+		if err != nil {
+			return msg.CopyFileResponse{Success: false, Error: "Failed to set mode: " + err.Error()}
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			return msg.CopyFileResponse{Success: false, Error: "Failed to set mode: " + destPath + " is a symlink"}
+		}
+		if copyCmd.FilePerm == 0 {
+			return msg.CopyFileResponse{Success: false, Error: "file_perm is required"}
+		}
+		if err := applySyncMetadata(destPath, copyCmd); err != nil {
+			return msg.CopyFileResponse{Success: false, Error: "Failed to set mode: " + err.Error()}
+		}
+		return msg.CopyFileResponse{Success: true}
+
+	case "rename":
+		// Put a file uploaded elsewhere in place in one step, so the
+		// destination is never seen part written. A symlink at the
+		// destination is replaced, not written through.
+		from := copyCmd.RenameFrom
+		if from == "" {
+			return msg.CopyFileResponse{Success: false, Error: "rename_from is required"}
+		}
+		if !filepath.IsAbs(from) && copyCmd.Workdir != "" {
+			from = filepath.Join(copyCmd.Workdir, from)
+		}
+		if err := writedir.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+			return msg.CopyFileResponse{Success: false, Error: "Failed to create directory: " + err.Error()}
+		}
+		if err := writedir.Rename(from, destPath); err != nil {
+			return msg.CopyFileResponse{Success: false, Error: "Failed to rename file: " + err.Error()}
+		}
+		if err := applySyncMetadata(destPath, copyCmd); err != nil {
+			logger.Warn("failed to apply sync metadata", "error", err, "file", destPath)
+		}
+		return msg.CopyFileResponse{Success: true}
+	}
+
 	// Create directory if it doesn't exist
 	destDir := filepath.Dir(destPath)
-	if err := os.MkdirAll(destDir, 0755); err != nil {
+	if err := writedir.MkdirAll(destDir, 0755); err != nil {
 		logger.Error("failed to create directory", "error", err, "dir", destDir)
 		return msg.CopyFileResponse{Success: false, Error: "Failed to create directory: " + err.Error()}
 	}
@@ -90,13 +148,18 @@ func handleCopyToSpace(copyCmd msg.CopyFileMessage) msg.CopyFileResponse {
 
 	switch mode {
 	case "overwrite":
-		if err := os.WriteFile(destPath, copyCmd.Content, 0644); err != nil {
+		// A new file in a folder made read-only is added to it all the same.
+		if err := writedir.In(func() error { return os.WriteFile(destPath, copyCmd.Content, 0644) }, destDir); err != nil {
 			logger.Error("failed to write file", "error", err, "file", destPath)
 			return msg.CopyFileResponse{Success: false, Error: "Failed to write file: " + err.Error()}
 		}
 
 	case "append":
-		f, err := os.OpenFile(destPath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
+		var f *os.File
+		err := writedir.In(func() (err error) {
+			f, err = os.OpenFile(destPath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
+			return err
+		}, destDir)
 		if err != nil {
 			logger.Error("failed to open file for append", "error", err, "file", destPath)
 			return msg.CopyFileResponse{Success: false, Error: "Failed to open file: " + err.Error()}
@@ -115,7 +178,7 @@ func handleCopyToSpace(copyCmd msg.CopyFileMessage) msg.CopyFileResponse {
 			return msg.CopyFileResponse{Success: false, Error: "Failed to read file: " + err.Error()}
 		}
 		combined := append(copyCmd.Content, existing...)
-		if err := os.WriteFile(destPath, combined, 0644); err != nil {
+		if err := writedir.In(func() error { return os.WriteFile(destPath, combined, 0644) }, destDir); err != nil {
 			logger.Error("failed to write file", "error", err, "file", destPath)
 			return msg.CopyFileResponse{Success: false, Error: "Failed to write file: " + err.Error()}
 		}

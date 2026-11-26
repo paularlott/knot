@@ -2,10 +2,13 @@ package command_spaces
 
 import (
 	"context"
+	"errors"
 	"hash/crc64"
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
+	"sort"
 	"strings"
 	"sync"
 	"testing"
@@ -26,6 +29,10 @@ type stubClient struct {
 	lastFindReq   apiclient.FindRequest
 	files         map[string]remoteFile // content served by ReadSpaceFileBytes
 	reads         int
+	ops           []string          // "write path", "delete path", "symlink path", in order
+	failWrites    int               // writes to fail before they succeed again
+	dirs          map[string]uint32 // folders made → mode
+	failDeletes   map[string]bool   // paths whose delete fails
 }
 
 type remoteFile struct {
@@ -81,6 +88,13 @@ func hasDotSegment(p string) bool {
 func (s *stubClient) WriteSpaceFileOpts(ctx context.Context, spaceID, filePath, content, mode string, mtimeNs int64, filePerm uint32) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.failWrites > 0 {
+		s.failWrites--
+		return errors.New("space not running")
+	}
+	if mode != "append" {
+		s.ops = append(s.ops, "write "+filePath)
+	}
 	existing, ok := s.uploaded[filePath]
 	switch mode {
 	case "append":
@@ -111,7 +125,11 @@ func (s *stubClient) WriteSpaceFileOpts(ctx context.Context, spaceID, filePath, 
 func (s *stubClient) DeleteSpaceFile(ctx context.Context, spaceID string, req apiclient.DeleteFileRequest) (*apiclient.DeleteFileResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.failDeletes[req.Path] {
+		return nil, errors.New("space not running")
+	}
 	s.deleted[req.Path] = req.Recursive
+	s.ops = append(s.ops, "delete "+req.Path)
 	return &apiclient.DeleteFileResponse{Success: true, Removed: 1}, nil
 }
 
@@ -119,6 +137,47 @@ func (s *stubClient) CreateSymlinkSpaceFile(ctx context.Context, spaceID, filePa
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.symlinks[filePath] = target
+	s.ops = append(s.ops, "symlink "+filePath)
+	return nil
+}
+
+func (s *stubClient) MakeSpaceDir(ctx context.Context, spaceID, dirPath string, perm uint32) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.dirs == nil {
+		s.dirs = map[string]uint32{}
+	}
+	s.dirs[dirPath] = perm
+	s.ops = append(s.ops, "mkdir "+dirPath)
+	return nil
+}
+
+func (s *stubClient) ChmodSpaceFile(ctx context.Context, spaceID, filePath string, perm uint32) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.ops = append(s.ops, "chmod "+filePath)
+	f := s.uploaded[filePath]
+	f.perm = perm
+	s.uploaded[filePath] = f
+	return nil
+}
+
+func (s *stubClient) RenameSpaceFile(ctx context.Context, spaceID, from, filePath string, mtimeNs int64, filePerm uint32) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	f, ok := s.uploaded[from]
+	if !ok {
+		return os.ErrNotExist
+	}
+	delete(s.uploaded, from)
+	if mtimeNs != 0 {
+		f.mtimeNs = mtimeNs
+	}
+	if filePerm != 0 {
+		f.perm = filePerm
+	}
+	s.uploaded[filePath] = f
+	s.ops = append(s.ops, "rename "+from+" "+filePath)
 	return nil
 }
 
@@ -287,6 +346,51 @@ func TestMirrorRejectsFileAsLocal(t *testing.T) {
 }
 
 // --- delete phase tests -----------------------------------------------------
+
+// A path the space has as another kind is removed before it is replaced, so
+// a file is never written through a symlink or onto a folder, and what the
+// removed folder held is not deleted again on its own.
+func TestMirrorReplacesPathsOfAnotherKind(t *testing.T) {
+	root := t.TempDir()
+	writeTree(t, root, map[string]string{"conf": "real file", "was_dir": "now a file", "was_file/inner.txt": "x"})
+
+	stub := newStubClient()
+	stub.remoteEntries = []apiclient.FindEntry{
+		{Path: "/w/conf", LinkTarget: "/etc/hosts"},
+		{Path: "/w/was_dir", IsDir: true},
+		{Path: "/w/was_dir/old.txt", Size: 1},
+		{Path: "/w/was_file", Size: 3},
+	}
+	opts := &mirrorOptions{
+		client: stub, spaceID: "sp", spaceName: "s",
+		localRoot: root, remoteDir: "/w",
+		parallel: 1,
+	}
+	if _, err := opts.run(context.Background()); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	index := func(op string) int {
+		for i, o := range stub.ops {
+			if o == op {
+				return i
+			}
+		}
+		return -1
+	}
+	for _, p := range []string{"/w/conf", "/w/was_dir"} {
+		d, w := index("delete "+p), index("write "+p)
+		if d < 0 || w < 0 || d > w {
+			t.Errorf("%s: want delete before write, ops %v", p, stub.ops)
+		}
+	}
+	d, w := index("delete /w/was_file"), index("write /w/was_file/inner.txt")
+	if d < 0 || w < 0 || d > w {
+		t.Errorf("was_file: want delete before writing below it, ops %v", stub.ops)
+	}
+	if index("delete /w/was_dir/old.txt") >= 0 {
+		t.Errorf("what the replaced folder held was deleted again: %v", stub.ops)
+	}
+}
 
 func TestMirrorDeletesExtras(t *testing.T) {
 	root := t.TempDir()
@@ -1057,5 +1161,171 @@ func TestRelativiseRemote(t *testing.T) {
 		if got != c.want {
 			t.Errorf("relativiseRemote(%q, %q): got %q, want %q", c.base, c.sub, got, c.want)
 		}
+	}
+}
+
+// --- folders and atomic large uploads ---------------------------------------
+
+func TestMirrorMakesEmptyFoldersAndModes(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("folder modes are not mirrored from Windows")
+	}
+	root := t.TempDir()
+	writeTree(t, root, map[string]string{
+		"full/a.txt":    "a",
+		"private/b.txt": "b",
+		"same/c.txt":    "c",
+		"sealed/d.txt":  "d",
+	})
+	os.Chmod(filepath.Join(root, "sealed"), 0500)
+	t.Cleanup(func() { os.Chmod(filepath.Join(root, "sealed"), 0755) })
+	os.MkdirAll(filepath.Join(root, "empty/inner"), 0755)
+	os.Chmod(filepath.Join(root, "private"), 0700)
+	os.Chmod(filepath.Join(root, "same"), 0750)
+
+	stub := newStubClient()
+	stub.remoteEntries = []apiclient.FindEntry{
+		{Path: "/dst/same", IsDir: true, FilePerm: 0755},
+		{Path: "/dst/same/c.txt", Size: 1},
+	}
+	opts := &mirrorOptions{client: stub, spaceID: "sp", spaceName: "s", localRoot: root, remoteDir: "/dst", parallel: 1}
+	if _, err := opts.run(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]uint32{
+		"/dst/empty/inner": 0755, // empty: made
+		"/dst/private":     0700, // new, of another mode
+		"/dst/same":        0750, // there, of another mode
+		"/dst/sealed":      0500, // read-only
+	}
+	if len(stub.dirs) != len(want) {
+		t.Fatalf("folders made: %v, want %v", stub.dirs, want)
+	}
+	for p, perm := range want {
+		if got, ok := stub.dirs[p]; !ok || got != perm {
+			t.Errorf("%s: made=%v mode %o, want %o", p, ok, got, perm)
+		}
+	}
+	// "empty" holds a folder, so making that makes it; "full" holds a file.
+	// Folders come after the uploads (the agent opens a read-only one while
+	// it adds to it), those deepest first.
+	last, folders := -1, []string{}
+	for i, op := range stub.ops {
+		if strings.HasPrefix(op, "write ") {
+			last = i
+		} else if strings.HasPrefix(op, "mkdir ") {
+			if i < last {
+				t.Errorf("%s before a write: %v", op, stub.ops)
+			}
+			folders = append(folders, op)
+		}
+	}
+	if !sort.SliceIsSorted(folders, func(i, j int) bool { return folders[i] > folders[j] }) {
+		t.Errorf("folders not deepest first: %v", folders)
+	}
+}
+
+func TestMirrorLargeFileRenamedIntoPlace(t *testing.T) {
+	orig := chunkSize
+	chunkSize = 100
+	defer func() { chunkSize = orig }()
+
+	root := t.TempDir()
+	payload := strings.Repeat("x", 250)
+	writeTree(t, root, map[string]string{"sub/big.bin": payload})
+	mtime := time.Now().Add(-time.Hour)
+	os.Chtimes(filepath.Join(root, "sub/big.bin"), mtime, mtime)
+
+	stub := newStubClient()
+	opts := &mirrorOptions{client: stub, spaceID: "sp", spaceName: "s", localRoot: root, remoteDir: "/dst", parallel: 1}
+	if _, err := opts.run(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if len(stub.ops) != 2 || !strings.HasPrefix(stub.ops[0], "write /dst/sub/.big.bin.") {
+		t.Fatalf("ops %v, want a write to a hidden temporary file, then a rename", stub.ops)
+	}
+	tmp := strings.TrimPrefix(stub.ops[0], "write ")
+	if !isUploadTemp(tmp) || stub.ops[1] != "rename "+tmp+" /dst/sub/big.bin" {
+		t.Errorf("ops %v: want %s renamed to /dst/sub/big.bin", stub.ops, tmp)
+	}
+	got := stub.uploaded["/dst/sub/big.bin"]
+	if got.content != payload || got.mtimeNs != mtime.UnixNano() || got.perm != 0644 {
+		t.Errorf("dest: %d bytes mtime=%d perm=%o", len(got.content), got.mtimeNs, got.perm)
+	}
+	if stub.hasUploaded(tmp) {
+		t.Error("temp file left behind")
+	}
+}
+
+func TestMirrorFailedLargeUploadRemovesTemp(t *testing.T) {
+	orig := chunkSize
+	chunkSize = 100
+	defer func() { chunkSize = orig }()
+
+	root := t.TempDir()
+	writeTree(t, root, map[string]string{"big.bin": strings.Repeat("x", 250)})
+	stub := newStubClient()
+	stub.failWrites = 1
+	opts := &mirrorOptions{client: stub, spaceID: "sp", spaceName: "s", localRoot: root, remoteDir: "/dst", parallel: 1}
+	stats, _ := opts.run(context.Background())
+	deletedTemp := false
+	for p := range stub.deleted {
+		deletedTemp = deletedTemp || (strings.HasPrefix(p, "/dst/.big.bin.") && isUploadTemp(p))
+	}
+	if stats.failed.Load() != 1 || !deletedTemp {
+		t.Errorf("failed=%d ops %v: want the temporary upload removed", stats.failed.Load(), stub.ops)
+	}
+}
+
+func TestMirrorSendsFileModeChange(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("file modes are not mirrored from Windows")
+	}
+	root := t.TempDir()
+	writeTree(t, root, map[string]string{"app.sh": "x"})
+	mtime := time.Now().Add(-time.Hour).Truncate(time.Second)
+	os.Chtimes(filepath.Join(root, "app.sh"), mtime, mtime)
+	os.Chmod(filepath.Join(root, "app.sh"), 0755) // chmod keeps size and mtime
+	stub := newStubClient()
+	stub.remoteEntries = []apiclient.FindEntry{{Path: "/dst/app.sh", Size: 1, Mtime: float64(mtime.UnixNano()) / 1e9, FilePerm: 0644}}
+	opts := &mirrorOptions{client: stub, spaceID: "sp", localRoot: root, remoteDir: "/dst", parallel: 1}
+	stats, _ := opts.run(context.Background())
+	if strings.Join(stub.ops, "|") != "chmod /dst/app.sh" || stub.uploaded["/dst/app.sh"].perm != 0755 || stats.uploaded.Load() != 1 {
+		t.Errorf("ops %v, perm %o, uploaded %d: want only the mode set", stub.ops, stub.uploaded["/dst/app.sh"].perm, stats.uploaded.Load())
+	}
+}
+
+func TestMirrorFromSymlinkedFolder(t *testing.T) {
+	real := t.TempDir()
+	writeTree(t, real, map[string]string{"a.txt": "a"})
+	link := filepath.Join(t.TempDir(), "current")
+	if err := os.Symlink(real, link); err != nil {
+		t.Skip(err)
+	}
+	stub := newStubClient()
+	stats, err := (&mirrorOptions{client: stub, spaceID: "sp", localRoot: link, remoteDir: "/dst", parallel: 1}).run(context.Background())
+	if err != nil || stats.uploaded.Load() != 1 {
+		t.Errorf("err %v, uploaded %d: want the folder the symlink leads to mirrored", err, stats.uploaded.Load())
+	}
+}
+
+// A symlink in the space that couldn't be removed is not written through:
+// the file replacing it waits for the next run.
+func TestMirrorFailedConflictDeleteBlocksUpload(t *testing.T) {
+	root := t.TempDir()
+	writeTree(t, root, map[string]string{"conf": "local", "dir/a.txt": "a", "ok.txt": "ok"})
+	stub := newStubClient()
+	stub.remoteEntries = []apiclient.FindEntry{
+		{Path: "/dst/conf", LinkTarget: "/etc/passwd"},
+		{Path: "/dst/dir", Size: 3}, // a file where a folder is here
+	}
+	stub.failDeletes = map[string]bool{"/dst/conf": true, "/dst/dir": true}
+	opts := &mirrorOptions{client: stub, spaceID: "sp", localRoot: root, remoteDir: "/dst", parallel: 1}
+	stats, _ := opts.run(context.Background())
+	if stub.hasUploaded("/dst/conf") || stub.hasUploaded("/dst/dir/a.txt") || !stub.hasUploaded("/dst/ok.txt") {
+		t.Errorf("ops %v: want conf and dir/ left for the next run, ok.txt sent", stub.ops)
+	}
+	if stats.failed.Load() != 2 {
+		t.Errorf("failed %d, want 2", stats.failed.Load())
 	}
 }

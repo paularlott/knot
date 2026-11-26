@@ -14,6 +14,7 @@ func onRemove(ctx context.Context, w *response, userHandle Handler) error {
 }
 
 func onRemoveObj(ctx context.Context, w *response, userHandle Handler, directory bool) error {
+	w.waitEarlier() // knot: requests sent before the remove are made first
 	w.errorFmt = wccDataErrorFormatter
 	obj := DirOpArg{}
 	if err := xdr.Read(w.req.Body, &obj); err != nil {

@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/paularlott/knot/internal/agentapi/msg"
+	"github.com/paularlott/knot/internal/util/writedir"
 
 	"github.com/paularlott/knot/internal/log"
 )
@@ -31,11 +32,13 @@ func handleDeleteFileExecution(stream net.Conn, deleteCmd msg.DeleteFileMessage)
 			response.Error = "Failed to stat path: " + err.Error()
 		}
 	} else if info.IsDir() && deleteCmd.Recursive {
+		// The count is for the reply only: a folder inside its owner can't
+		// read (which the removal opens) must not stop the removal.
 		count, err := countTree(targetPath)
 		if err != nil {
-			logger.Error("failed to count tree for delete", "error", err, "path", targetPath)
-			response.Error = "Failed to count tree: " + err.Error()
-		} else if err := os.RemoveAll(targetPath); err != nil {
+			logger.Debug("could not count tree for delete", "error", err, "path", targetPath)
+		}
+		if err := writedir.RemoveAll(targetPath); err != nil {
 			logger.Error("failed to remove directory", "error", err, "path", targetPath)
 			response.Error = "Failed to remove directory: " + err.Error()
 		} else {
@@ -44,7 +47,7 @@ func handleDeleteFileExecution(stream net.Conn, deleteCmd msg.DeleteFileMessage)
 		}
 	} else if info.IsDir() {
 		// Non-recursive directory delete: only succeeds if the directory is empty.
-		if err := os.Remove(targetPath); err != nil {
+		if err := writedir.Remove(targetPath); err != nil {
 			logger.Error("failed to remove directory (non-recursive)", "error", err, "path", targetPath)
 			response.Error = "Failed to remove directory (use recursive for non-empty dirs): " + err.Error()
 		} else {
@@ -52,7 +55,7 @@ func handleDeleteFileExecution(stream net.Conn, deleteCmd msg.DeleteFileMessage)
 			response.Removed = 1
 		}
 	} else {
-		if err := os.Remove(targetPath); err != nil {
+		if err := writedir.Remove(targetPath); err != nil {
 			logger.Error("failed to remove file", "error", err, "path", targetPath)
 			response.Error = "Failed to remove file: " + err.Error()
 		} else {

@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 )
 
 // Content is an open object's content, a file or held in memory.
@@ -29,6 +30,12 @@ type blobStore struct {
 	dir    string
 	tmpDir string
 	noSync bool // do not fsync uploaded content, see Config.NoSync
+
+	// dirs keeps installs, which make a fan-out folder and rename into it,
+	// apart from the sweep removing empty ones: on macOS a mkdir or rename
+	// into a folder being removed fails with EINVAL, not ENOENT, so it
+	// can't simply be retried. Installs share it; the sweep holds it alone.
+	dirs sync.RWMutex
 }
 
 func newBlobStore(dir, tmpDir string, noSync bool) (*blobStore, error) {
@@ -80,18 +87,12 @@ func (bs *blobStore) install(tmpPath, sha string) error {
 		os.Remove(tmpPath)
 		return nil
 	}
-	// The sweep may remove an empty directory between creating it and the
-	// rename, so recreate it and retry.
-	var err error
-	for attempt := 0; attempt < 3; attempt++ {
-		if err = os.MkdirAll(filepath.Dir(dst), 0700); err != nil {
-			return err
-		}
-		if err = os.Rename(tmpPath, dst); err == nil || !os.IsNotExist(err) {
-			return err
-		}
+	bs.dirs.RLock()
+	defer bs.dirs.RUnlock()
+	if err := os.MkdirAll(filepath.Dir(dst), 0700); err != nil {
+		return err
 	}
-	return err
+	return os.Rename(tmpPath, dst)
 }
 
 func (bs *blobStore) walk(fn func(sha string)) {
@@ -110,19 +111,26 @@ func (bs *blobStore) removeEmptyDirs() {
 		return
 	}
 	for _, t := range top {
-		if !t.IsDir() {
-			continue
+		if t.IsDir() {
+			bs.removeEmptyUnder(filepath.Join(bs.dir, t.Name()))
 		}
-		first := filepath.Join(bs.dir, t.Name())
-		subs, _ := os.ReadDir(first)
-		for _, sd := range subs {
-			if sd.IsDir() {
-				// Remove fails harmlessly when the directory isn't empty.
-				os.Remove(filepath.Join(first, sd.Name()))
-			}
-		}
-		os.Remove(first)
 	}
+}
+
+// removeEmptyUnder removes the top-level fan-out folder first, and the
+// folders in it, that are empty. It holds installs off one top-level
+// folder at a time, so a long sweep holds them up only briefly.
+func (bs *blobStore) removeEmptyUnder(first string) {
+	bs.dirs.Lock()
+	defer bs.dirs.Unlock()
+	subs, _ := os.ReadDir(first)
+	for _, sd := range subs {
+		if sd.IsDir() {
+			// Remove fails harmlessly when the directory isn't empty.
+			os.Remove(filepath.Join(first, sd.Name()))
+		}
+	}
+	os.Remove(first)
 }
 
 // tempWriter streams content into a temporary file while hashing it.

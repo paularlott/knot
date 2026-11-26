@@ -1,4 +1,4 @@
-package command_files
+package dirwatch
 
 import (
 	"errors"
@@ -9,10 +9,10 @@ import (
 	"syscall"
 )
 
-// watchLimitHint says why folders could not be watched and how to fix it.
+// LimitHint says why folders could not be watched and how to fix it.
 // Linux watches each folder with inotify, up to fs.inotify.max_user_watches
 // for all of a user's processes, and for every container on a host.
-func watchLimitHint(err error, folders int) string {
+func LimitHint(err error, folders int) string {
 	switch {
 	case errors.Is(err, syscall.ENOSPC):
 		limit := "?"

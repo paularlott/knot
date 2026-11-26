@@ -108,6 +108,21 @@ func (m *moves) find(path string, ino uint64, now time.Time) (to string, found b
 	return path, found
 }
 
+// firstMove returns where the file at path last went, following later
+// renames, and the inode number its own move recorded (0 when a folder
+// above it moved, or the number was not known): found is false when
+// nothing here moved or removed it.
+func (m *moves) firstMove(path string, now time.Time) (to string, ino uint64, found bool) {
+	path = cleanPath(path)
+	m.mu.Lock()
+	if mv, ok := m.latestLocked(path, 0, now); ok {
+		ino = mv.ino
+	}
+	m.mu.Unlock()
+	to, found = m.find(path, ino, now)
+	return to, ino, found
+}
+
 // stepLocked finds one move of path itself, or of a folder above it.
 func (m *moves) stepLocked(path string, ino uint64, now time.Time) (string, bool) {
 	if mv, ok := m.latestLocked(path, ino, now); ok {

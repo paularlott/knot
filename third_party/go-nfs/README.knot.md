@@ -2,16 +2,36 @@
 
 A copy of [github.com/willscott/go-nfs](https://github.com/willscott/go-nfs)
 at master `6274d051a57f` (26 September 2026, after v0.0.4; Apache-2.0, see
-LICENSE), used through a `replace` in knot's go.mod by `internal/nfsserver`.
-Only the library sources are kept: no upstream tests, examples or helpers.
+LICENSE), with upstream's connection and shutdown code from master
+`19d471546678` (24 November 2026) merged in, used through a `replace` in
+knot's go.mod by `internal/nfsserver`. Only the library sources are kept,
+with upstream's connection tests (`conn_test.go`,
+`conn_concurrency_test.go`, `shutdown_test.go`): no other upstream tests,
+examples or helpers.
 
 knot serves NFSv3 and NFSv4.0 (`Server.EnabledNFSVersions`), and uses
-upstream's concurrent request handling (`Server.ConcurrentHandlers`). The
-changes below are each marked `knot:` in the code. Upstream master was
-checked again on 31 October 2026 and had not moved.
+upstream's concurrent request handling (`Server.ConcurrentHandlers`) and
+graceful `Server.Shutdown`. The changes below are each marked `knot:` in
+the code.
+
+Taken from `19d471546678`: `Server.Shutdown` and `Close` (`Serve` returns
+`ErrServerClosed` and only once its connections have finished; a
+connection stops reading, answers the requests it has and closes), RPC
+authentication bodies bounded to 400 bytes, and files closed on WRITE and
+SETATTR errors. Not taken: upstream's lint-only edits, its dependency bumps
+and its `helpers` (the caching handler), which knot does not use.
 
 Both versions:
 
+- A RENAME or REMOVE waits (for up to 10s) until the requests read before
+  it on its connection are handled (`conn.waitEarlier`). Requests are
+  handled concurrently, so one could be made before those the client sent
+  first: a client writes a file and renames it over another without waiting
+  between, and the rename moved the file before the writes reached it, so
+  others read it without them (empty, or with a gap).
+- WRITE and SETATTR of a size close the file they opened when the write or
+  truncate fails, as upstream does since `19d471546678` (24 November 2026);
+  knot counts a file opened for a write until it is written or closed.
 - A panic in a request's handler is recovered and answered with a system
   error, logged with its stack (`conn.callHandler`), as upstream's open
   PR #151 proposes; upstream let it end the process.
@@ -26,7 +46,9 @@ Both versions:
   as that version's.
 - Each reply is written by the goroutine that handled its request, under a
   lock (`conn.writeReply`), rather than handed over a channel to a goroutine
-  that wrote replies: one goroutine wake-up fewer per request.
+  that wrote replies: one goroutine wake-up fewer per request. The
+  connection's handlers are waited for before it is closed, so a reply is
+  never written after.
 
 NFSv3:
 
@@ -137,5 +159,5 @@ NFSv4.0:
   the request around it is more than a request may be.
 
 To move to a newer upstream: copy its library sources over these, keep
-`xdr.go`, `knot_test.go` and this file, check whether each change above is
+`xdr.go`, the `knot_*` and `*_test.go` files knot added and this file, check whether each change above is
 still needed, and re-apply those that are.

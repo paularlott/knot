@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -110,11 +111,32 @@ var mcpInitParams = map[string]any{
 	"clientInfo":      map[string]any{"name": "knot-integration", "version": "1"},
 }
 
-// mcpResource is the server's MCP resource identifier (RFC 8707), built
-// from its configured public URL as the protected resource metadata is.
+// mcpResource is the server's MCP resource identifier (RFC 8707), as its
+// protected resource metadata gives it. That is built from the server's
+// public URL after the server expands it: the harness may start the server
+// with a ${{ host_ip }} placeholder in it, which only the server resolves.
 func mcpResource() string {
-	return server.ContainerBaseURL + "/mcp"
+	mcpResourceOnce.Do(func() {
+		mcpResourceURL = server.ContainerBaseURL + "/mcp"
+		resp, err := http.Get(server.BaseURL + "/.well-known/oauth-protected-resource/mcp")
+		if err != nil {
+			return
+		}
+		defer resp.Body.Close()
+		var prm struct {
+			Resource string `json:"resource"`
+		}
+		if json.NewDecoder(resp.Body).Decode(&prm) == nil && prm.Resource != "" {
+			mcpResourceURL = prm.Resource
+		}
+	})
+	return mcpResourceURL
 }
+
+var (
+	mcpResourceOnce sync.Once
+	mcpResourceURL  string
+)
 
 // oauthAuthorize runs authorize → grant page → approve as the signed-in
 // browser and returns the authorization code sent to the redirect URI.
@@ -395,17 +417,17 @@ func TestOAuthRegisteredClient(t *testing.T) {
 	resp, _ = oauthDo(t, browser, req)
 	mustEqual(t, "forged approval to unregistered redirect", resp.StatusCode, http.StatusBadRequest)
 
-	// A token for another resource is refused (RFC 8707): the error goes
-	// back to the registered client's redirect URI.
+	// A token for another resource is refused (RFC 8707), answered here
+	// rather than at the redirect URI: registration is open, so redirecting
+	// would make knot an open redirector (RFC 9700 section 4.11.2).
 	q.Set("redirect_uri", redirectURI)
 	q.Set("state", "st-target")
 	q.Set("resource", "https://other.example.test/mcp")
 	req, _ = http.NewRequest("GET", server.BaseURL+"/authorize?"+q.Encode(), nil)
-	resp, _ = oauthDo(t, browser, req)
-	mustEqual(t, "authorize for another resource", resp.StatusCode, http.StatusSeeOther)
-	if loc, err := url.Parse(resp.Header.Get("Location")); err != nil || !strings.HasPrefix(loc.String(), redirectURI+"?") ||
-		loc.Query().Get("error") != "invalid_target" || loc.Query().Get("state") != "st-target" {
-		t.Fatalf("authorize for another resource redirected to %q, want %s with error=invalid_target", resp.Header.Get("Location"), redirectURI)
+	resp, body = oauthDo(t, browser, req)
+	mustEqual(t, "authorize for another resource", resp.StatusCode, http.StatusBadRequest)
+	if resp.Header.Get("Location") != "" || !strings.Contains(body, "invalid_target") {
+		t.Fatalf("authorize for another resource: Location %q, body %q, want no redirect and invalid_target", resp.Header.Get("Location"), body)
 	}
 	q.Del("resource")
 	q.Del("state")

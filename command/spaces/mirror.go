@@ -2,12 +2,17 @@ package command_spaces
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"hash/crc64"
 	"io"
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
+	"slices"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -118,6 +123,9 @@ var MirrorCmd = &cli.Command{
 		}
 		if pull && cmd.GetBool("watch") {
 			return fmt.Errorf("--watch only works when uploading to a space")
+		}
+		if cmd.GetBool("verify") && cmd.GetBool("watch") {
+			return fmt.Errorf("--verify only checks and changes nothing, so it can't be used with --watch")
 		}
 
 		client, err := cmdutil.GetClient(cmd)
@@ -291,6 +299,23 @@ type mirrorOptions struct {
 	hash      bool // use crc64 comparison instead of mtime+size
 	watch     bool // after initial mirror, watch for changes
 	pull      bool // space → local rather than local → space
+
+	// onEntry, when set, is told of each local path a push's walk sees, and
+	// onFail of each path it could not send (deleting: a remote path it
+	// could not remove), in place of printing it. --watch uses them to know
+	// what the space was given. onFail may be called from several goroutines.
+	onEntry func(rel string, info os.FileInfo, target string)
+	onFail  func(rel string, deleting bool, err error)
+}
+
+// failed counts and reports a path a push could not send.
+func (o *mirrorOptions) failed(stats *mirrorStats, rel string, deleting bool, err error) {
+	stats.failed.Add(1)
+	if o.onFail != nil {
+		o.onFail(rel, deleting, err)
+		return
+	}
+	fmt.Fprintf(os.Stderr, "  ! %s: %v\n", rel, cmdutil.Describe(err))
 }
 
 // mirrorClient is the subset of *apiclient.ApiClient that mirror needs.
@@ -300,6 +325,9 @@ type mirrorClient interface {
 	WriteSpaceFileOpts(ctx context.Context, spaceID, filePath, content, mode string, mtimeNs int64, filePerm uint32) error
 	DeleteSpaceFile(ctx context.Context, spaceID string, req apiclient.DeleteFileRequest) (*apiclient.DeleteFileResponse, error)
 	CreateSymlinkSpaceFile(ctx context.Context, spaceID, filePath, target string) error
+	MakeSpaceDir(ctx context.Context, spaceID, dirPath string, perm uint32) error
+	ChmodSpaceFile(ctx context.Context, spaceID, filePath string, perm uint32) error
+	RenameSpaceFile(ctx context.Context, spaceID, from, filePath string, mtimeNs int64, filePerm uint32) error
 	ReadSpaceFileBytes(ctx context.Context, spaceID, filePath string, offset, length int64) (*apiclient.SpaceFileRange, error)
 }
 
@@ -311,6 +339,7 @@ type remoteMeta struct {
 	isDir      bool
 	hash       uint64
 	linkTarget string // symlink target; empty for regular files
+	perm       uint32 // permission bits; 0 when the agent gave none
 }
 
 // upload is the per-file work item. Value semantics so it's safe to pass
@@ -331,6 +360,7 @@ type upload struct {
 // abort the run.
 func (o *mirrorOptions) run(ctx context.Context) (*mirrorStats, error) {
 	stats := &mirrorStats{}
+	o.resolveRoot()
 
 	// Fetch remote set WITH metadata + hash. The per-entry stat and hash on
 	// the remote is cheap compared to re-uploading unchanged files.
@@ -368,6 +398,16 @@ func (o *mirrorOptions) run(ctx context.Context) (*mirrorStats, error) {
 		mode     uint32
 	}
 	var collected []collectedFile
+	// Paths the space has as another kind than here (a folder where this is
+	// a file, a symlink where this is a file): removed before the uploads,
+	// so a file is never written through an old symlink or onto a folder.
+	var conflicts []string
+	// Folders, and those holding something mirror sends: the space makes
+	// the folders files go into, the rest (empty ones, and those of another
+	// mode) are made after the uploads.
+	var dirs []localDir
+	var chmods []localDir // files whose mode alone changed
+	holds := map[string]bool{}
 
 	walkErr := filepath.WalkDir(o.localRoot, func(p string, d os.DirEntry, err error) error {
 		if err != nil {
@@ -388,7 +428,19 @@ func (o *mirrorOptions) run(ctx context.Context) (*mirrorStats, error) {
 			return nil
 		}
 		if d.IsDir() {
+			r, onRemote := remoteSet[relSlash]
+			if onRemote && !r.isDir {
+				conflicts = append(conflicts, relSlash)
+				onRemote = false
+			}
 			delete(remoteSet, relSlash)
+			holds[path.Dir(relSlash)] = true
+			if info, err := d.Info(); err == nil {
+				dirs = append(dirs, localDir{rel: relSlash, perm: dirPerm(info), onRemote: onRemote, remotePerm: r.perm})
+				if o.onEntry != nil {
+					o.onEntry(relSlash, info, "")
+				}
+			}
 			return nil
 		}
 		// Symlink: read target, compare against remote, queue or skip.
@@ -398,9 +450,17 @@ func (o *mirrorOptions) run(ctx context.Context) (*mirrorStats, error) {
 			if err != nil {
 				return nil
 			}
+			holds[path.Dir(relSlash)] = true
+			if o.onEntry != nil {
+				if info, err := d.Info(); err == nil {
+					o.onEntry(relSlash, info, target)
+				}
+			}
 			r, hadRemote := remoteSet[relSlash]
 			delete(remoteSet, relSlash)
-			if hadRemote && r.linkTarget == target {
+			if hadRemote && r.isDir {
+				conflicts = append(conflicts, relSlash)
+			} else if hadRemote && r.linkTarget == target {
 				stats.skipped.Add(1)
 				return nil
 			}
@@ -422,6 +482,10 @@ func (o *mirrorOptions) run(ctx context.Context) (*mirrorStats, error) {
 		// Skip sockets, pipes, devices — not uploadable, would error on read.
 		if !info.Mode().IsRegular() {
 			return nil
+		}
+		holds[path.Dir(relSlash)] = true
+		if o.onEntry != nil {
+			o.onEntry(relSlash, info, "")
 		}
 		collected = append(collected, collectedFile{
 			rel: relSlash, localAbs: p,
@@ -449,7 +513,9 @@ func (o *mirrorOptions) run(ctx context.Context) (*mirrorStats, error) {
 		r, hadRemote := remoteSet[f.rel]
 		delete(remoteSet, f.rel)
 
-		if hadRemote && !r.isDir && r.size == f.size {
+		if hadRemote && (r.isDir || r.linkTarget != "") {
+			conflicts = append(conflicts, f.rel)
+		} else if hadRemote && r.size == f.size {
 			skip := false
 			if o.hash && r.hash != 0 {
 				skip = hashes[f.rel] == r.hash
@@ -461,6 +527,15 @@ func (o *mirrorOptions) run(ctx context.Context) (*mirrorStats, error) {
 				if skip {
 					stats.mtimeSkipped.Add(1)
 				}
+			}
+			if skip && modeDiffers(f.mode, r.perm) {
+				// Only the mode changed (chmod keeps size and mtime): set
+				// it, rather than send the content again.
+				if o.debug {
+					fmt.Fprintf(os.Stderr, "  ? %s — mode differs: local=%o remote=%o\n", f.rel, f.mode, r.perm)
+				}
+				chmods = append(chmods, localDir{rel: f.rel, perm: f.mode})
+				continue
 			}
 			if skip {
 				stats.skipped.Add(1)
@@ -481,12 +556,34 @@ func (o *mirrorOptions) run(ctx context.Context) (*mirrorStats, error) {
 		})
 	}
 
+	// Folders the uploads won't make, or not with their mode.
+	var makeDirs []localDir
+	for _, d := range dirs {
+		reason := ""
+		switch {
+		case d.onRemote:
+			if d.perm != 0 && d.remotePerm != 0 && d.remotePerm != d.perm {
+				reason = fmt.Sprintf("folder mode differs: local=%o remote=%o", d.perm, d.remotePerm)
+			}
+		case !holds[d.rel]:
+			reason = "new empty folder"
+		case d.perm != 0 && d.perm != defaultDirPerm:
+			reason = fmt.Sprintf("new folder, mode %o", d.perm)
+		}
+		if reason != "" {
+			if o.debug {
+				fmt.Fprintf(os.Stderr, "  ? %s/ — %s\n", d.rel, reason)
+			}
+			makeDirs = append(makeDirs, d)
+		}
+	}
+
 	// Delete phase: any path still in remoteSet wasn't in local → remove.
 	// Pass the actual isDir from the remote meta so dirOnly exclude
 	// patterns (e.g. "build/") shield remote directories correctly.
 	extras := make([]string, 0, len(remoteSet))
 	for rel, meta := range remoteSet {
-		if excludes(rel, meta.isDir) {
+		if excludes(rel, meta.isDir) || underAny(rel, conflicts) {
 			continue
 		}
 		extras = append(extras, rel)
@@ -498,8 +595,32 @@ func (o *mirrorOptions) run(ctx context.Context) (*mirrorStats, error) {
 		return stats, fmt.Errorf("%s is empty, so mirroring it would delete everything in %s:%s; check the path, or use --dry-run to see what would change", o.localRoot, o.spaceName, o.remoteDir)
 	}
 
-	// Upload phase: bounded parallel.
+	// Conflicts go first, so what replaces them can be written. One that
+	// couldn't be removed blocks what would replace it, and all below it:
+	// a write would go through a symlink still there, landing outside the
+	// mirrored folder. The next run tries again.
+	if blocked := o.deleteExtras(ctx, conflicts, stats); len(blocked) > 0 {
+		isBlocked := func(rel string) bool {
+			for _, b := range blocked {
+				if rel == b || strings.HasPrefix(rel, b+"/") {
+					return true
+				}
+			}
+			return false
+		}
+		uploads = slices.DeleteFunc(uploads, func(u upload) bool { return isBlocked(u.rel) })
+		chmods = slices.DeleteFunc(chmods, func(d localDir) bool { return isBlocked(d.rel) })
+		makeDirs = slices.DeleteFunc(makeDirs, func(d localDir) bool { return isBlocked(d.rel) })
+	}
+
+	// Upload phase: bounded parallel. The agent opens a folder made
+	// read-only while it adds to it or removes from it.
 	o.uploadInParallel(ctx, uploads, stats)
+
+	o.setModes(ctx, chmods, stats)
+
+	// Then the folders the uploads didn't make, and folder modes.
+	o.makeDirs(ctx, makeDirs, stats)
 
 	o.deleteExtras(ctx, extras, stats)
 
@@ -613,8 +734,7 @@ func (o *mirrorOptions) runVerify(ctx context.Context, remoteSet map[string]remo
 
 	// Anything left in remoteSet exists on the remote but not locally.
 	// Only report FILES — remote-only directories are noise for content
-	// verification (empty dirs don't carry content and mirror doesn't
-	// create or delete bare directories).
+	// verification (empty dirs don't carry content).
 	missingLocal := int64(0)
 	if ctx.Err() != nil {
 		return stats, ctx.Err()
@@ -633,6 +753,16 @@ func (o *mirrorOptions) runVerify(ctx context.Context, remoteSet map[string]remo
 	fmt.Fprintf(os.Stderr, "Verified: %d match, %d differ, %d missing on remote, %d missing on local\n",
 		verified, mismatch, missingRemote, missingLocal)
 	return stats, nil
+}
+
+// underAny reports whether rel lies below any of dirs.
+func underAny(rel string, dirs []string) bool {
+	for _, d := range dirs {
+		if strings.HasPrefix(rel, d+"/") {
+			return true
+		}
+	}
+	return false
 }
 
 // mtimeWithin reports whether a and b are within tol of each other. Order
@@ -689,6 +819,9 @@ func uploadReason(hadRemote bool, r remoteMeta, size int64, mtime time.Time) str
 	if r.isDir {
 		return "remote is a directory"
 	}
+	if r.linkTarget != "" {
+		return "remote is a symlink"
+	}
 	if r.size != size {
 		return fmt.Sprintf("size differs: local=%d remote=%d", size, r.size)
 	}
@@ -735,8 +868,7 @@ func (o *mirrorOptions) uploadInParallel(ctx context.Context, uploads []upload, 
 					continue
 				}
 				if err := o.uploadOne(ctx, u, buf); err != nil {
-					stats.failed.Add(1)
-					fmt.Fprintf(os.Stderr, "  ! %s: %v\n", u.rel, cmdutil.Describe(err))
+					o.failed(stats, u.rel, false, err)
 					continue
 				}
 				stats.uploaded.Add(1)
@@ -773,8 +905,8 @@ func bytesToString(b []byte) string {
 // uploadOne sends a single file to the space. Files larger than chunkSize
 // are streamed in blocks using mode="overwrite" for the first block and
 // mode="append" for the rest, so the server's 30s ReadTimeout never
-// truncates a huge single-request body. The last block carries the source
-// mtime and permission bits for applySyncMetadata on the agent side.
+// truncates a huge single-request body, to a hidden file that is then
+// renamed into place with the source mtime and permission bits.
 //
 // buf is a caller-owned scratch buffer of at least chunkSize bytes. Using a
 // persistent per-worker buffer avoids allocating a new buffer for every
@@ -803,27 +935,51 @@ func (o *mirrorOptions) uploadOne(ctx context.Context, u upload, buf []byte) err
 		return o.client.WriteSpaceFileOpts(ctx, o.spaceID, dest, bytesToString(buf[:n]), "", u.mtime.UnixNano(), u.mode)
 	}
 
-	// Chunked: stream chunkSize blocks, reusing buf for each.
+	// Chunked: sent to a hidden file beside the destination, then renamed
+	// over it, so the destination is never left part written.
+	tmp := uploadTemp(dest)
+	err = o.sendChunks(ctx, f, u, tmp, buf)
+	if err == nil {
+		err = o.client.RenameSpaceFile(ctx, o.spaceID, tmp, dest, u.mtime.UnixNano(), u.mode)
+	}
+	if err != nil && ctx.Err() == nil {
+		// Don't leave the part sent behind; if the space can't be reached
+		// to remove it, the next full mirror does.
+		o.client.DeleteSpaceFile(ctx, o.spaceID, apiclient.DeleteFileRequest{Path: tmp})
+	}
+	return err
+}
+
+// uploadSuffix ends the name of the hidden file a large upload is sent to
+// before it is renamed into place. One left by an upload cut short is
+// removed by the next full mirror, as it is not here.
+const uploadSuffix = ".knot-upload"
+
+// uploadTemp is the hidden file beside dest that a large upload is sent to:
+// ".<name>.<random>.knot-upload", the random part so it is never a file of
+// the same name being mirrored, which the upload would overwrite.
+func uploadTemp(dest string) string {
+	var b [6]byte
+	rand.Read(b[:])
+	return path.Join(path.Dir(dest), "."+path.Base(dest)+"."+hex.EncodeToString(b[:])+uploadSuffix)
+}
+
+// sendChunks streams f to dest in chunkSize blocks, reusing buf for each:
+// the first overwrites, the rest append.
+func (o *mirrorOptions) sendChunks(ctx context.Context, f *os.File, u upload, dest string, buf []byte) error {
 	sent := int64(0)
 	first := true
 
 	for sent < u.size {
 		n, err := io.ReadFull(f, buf)
-		isLast := sent+int64(n) >= u.size
 
 		mode := "append"
-		var mtimeNs int64
-		var perm uint32
 		if first {
 			mode = "overwrite"
 			first = false
 		}
-		if isLast {
-			mtimeNs = u.mtime.UnixNano()
-			perm = u.mode
-		}
 
-		if werr := o.client.WriteSpaceFileOpts(ctx, o.spaceID, dest, bytesToString(buf[:n]), mode, mtimeNs, perm); werr != nil {
+		if werr := o.client.WriteSpaceFileOpts(ctx, o.spaceID, dest, bytesToString(buf[:n]), mode, 0, 0); werr != nil {
 			return werr
 		}
 		sent += int64(n)
@@ -838,13 +994,113 @@ func (o *mirrorOptions) uploadOne(ctx context.Context, u upload, buf []byte) err
 	return nil
 }
 
+// localDir is a folder found here, and how the space has it.
+type localDir struct {
+	rel        string
+	perm       uint32
+	onRemote   bool
+	remotePerm uint32
+}
+
+// defaultDirPerm is the mode the space gives the folders it makes for the
+// files sent into them; a folder of another mode has it set.
+const defaultDirPerm = 0755
+
+// dirPerm is the folder mode to mirror: none from Windows, whose folders
+// have no Unix mode.
+func dirPerm(info os.FileInfo) uint32 {
+	if runtime.GOOS == "windows" {
+		return 0
+	}
+	return uint32(info.Mode().Perm())
+}
+
+// modeDiffers reports whether a file's permission bits here differ from the
+// space's, which chmod changes without touching size or mtime. Windows has
+// no Unix modes to compare, and an agent may give none.
+func modeDiffers(local, remote uint32) bool {
+	return runtime.GOOS != "windows" && remote != 0 && local != remote
+}
+
+// isUploadTemp reports whether rel is the hidden file a large upload is
+// sent to before it is renamed into place.
+func isUploadTemp(rel string) bool {
+	name := path.Base(rel)
+	return strings.HasPrefix(name, ".") && strings.HasSuffix(name, uploadSuffix)
+}
+
+// resolveRoot follows a local folder given as a symlink, which a walk would
+// otherwise not enter.
+func (o *mirrorOptions) resolveRoot() {
+	if r, err := filepath.EvalSymlinks(o.localRoot); err == nil {
+		o.localRoot = r
+	}
+}
+
+// sortDirs orders folders parents first, or with deepestFirst the ones
+// inside first, so a folder is never made read-only before the ones in it.
+func sortDirs(dirs []localDir, deepestFirst bool) {
+	sort.Slice(dirs, func(i, j int) bool { return (dirs[i].rel > dirs[j].rel) == deepestFirst })
+}
+
+// makeDirs makes folders on the space with their modes, those deepest
+// first, so a folder is never made read-only before the ones in it.
+func (o *mirrorOptions) makeDirs(ctx context.Context, dirs []localDir, stats *mirrorStats) {
+	sortDirs(dirs, true)
+	for _, d := range dirs {
+		if ctx.Err() != nil {
+			return
+		}
+		if o.dryRun {
+			if o.verbose {
+				fmt.Fprintf(os.Stderr, "  ↑ %s/ (dry-run)\n", d.rel)
+			}
+			stats.uploaded.Add(1)
+			continue
+		}
+		if err := o.makeDir(ctx, d.rel, d.perm); err != nil {
+			o.failed(stats, d.rel, false, err)
+			continue
+		}
+		stats.uploaded.Add(1)
+		if o.verbose {
+			fmt.Fprintf(os.Stderr, "  ↑ %s/\n", d.rel)
+		}
+	}
+}
+
+// setModes sets the permission bits of files whose content the space
+// already has.
+func (o *mirrorOptions) setModes(ctx context.Context, files []localDir, stats *mirrorStats) {
+	for _, f := range files {
+		if ctx.Err() != nil {
+			return
+		}
+		if !o.dryRun {
+			if err := o.client.ChmodSpaceFile(ctx, o.spaceID, path.Join(o.remoteDir, f.rel), f.perm); err != nil {
+				o.failed(stats, f.rel, false, err)
+				continue
+			}
+		}
+		stats.uploaded.Add(1)
+		if o.verbose {
+			fmt.Fprintf(os.Stderr, "  ↑ %s (mode %o)\n", f.rel, f.perm)
+		}
+	}
+}
+
+// makeDir makes a folder on the space with its mode.
+func (o *mirrorOptions) makeDir(ctx context.Context, rel string, perm uint32) error {
+	return o.client.MakeSpaceDir(ctx, o.spaceID, path.Join(o.remoteDir, rel), perm)
+}
+
 // deleteExtras removes the given rel paths from the remote space. Each path
 // is slash-relative under remoteDir; the destination path is computed and
 // the delete is recursive (covers directories that may exist remotely).
-func (o *mirrorOptions) deleteExtras(ctx context.Context, extras []string, stats *mirrorStats) {
+func (o *mirrorOptions) deleteExtras(ctx context.Context, extras []string, stats *mirrorStats) (failed []string) {
 	for _, rel := range extras {
 		if ctx.Err() != nil {
-			return
+			return failed
 		}
 		dest := path.Join(o.remoteDir, rel)
 		if o.dryRun {
@@ -860,8 +1116,8 @@ func (o *mirrorOptions) deleteExtras(ctx context.Context, extras []string, stats
 			Path:      dest,
 			Recursive: true,
 		}); err != nil {
-			stats.failed.Add(1)
-			fmt.Fprintf(os.Stderr, "  ! %s: %v\n", rel, cmdutil.Describe(err))
+			o.failed(stats, rel, true, err)
+			failed = append(failed, rel)
 			continue
 		}
 		stats.deleted.Add(1)
@@ -869,6 +1125,7 @@ func (o *mirrorOptions) deleteExtras(ctx context.Context, extras []string, stats
 			fmt.Fprintf(os.Stderr, "  − %s\n", rel)
 		}
 	}
+	return failed
 }
 
 // fetchRemoteSet calls Find on the space and returns a map keyed by the path
@@ -917,6 +1174,7 @@ func (o *mirrorOptions) fetchRemoteSet(ctx context.Context) (map[string]remoteMe
 			isDir:      e.IsDir,
 			hash:       e.Hash,
 			linkTarget: e.LinkTarget,
+			perm:       uint32(e.FilePerm),
 		}
 	}
 	return set, nil

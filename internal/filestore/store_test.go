@@ -1804,11 +1804,15 @@ func TestChangedReportsFilesAndWriters(t *testing.T) {
 		t.Fatalf("remote change: %+v", r)
 	}
 
-	// More than can be named: the bucket as a whole.
+	// More than can be named at once: the bucket as a whole. The changes
+	// arrive together, as from another server, so they fall in one report
+	// however long writing them one by one would take on a slow disk.
+	many := make([]*Object, 0, changeMaxKeys+1)
 	for i := 0; i <= changeMaxKeys; i++ {
-		put(t, s, &w1, "writers", fmt.Sprintf("many/%d", i), "x")
+		many = append(many, &Object{BucketId: bid(s, "writers"), Key: fmt.Sprintf("many/%d", i), SHA256: strings.Repeat("c", 64), Size: 1, UpdatedAt: hlc.Now()})
 	}
+	s.Merge(nil, many)
 	if r := next(); len(r) != 1 || r[0].Files != nil {
-		t.Fatalf("too many to name: %d buckets, files %v", len(r), len(r[0].Files))
+		t.Fatalf("too many to name: %d buckets, files %d", len(r), len(r[0].Files))
 	}
 }

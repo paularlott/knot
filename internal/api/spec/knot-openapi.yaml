@@ -4354,9 +4354,19 @@ paths:
                   description: Content to write to the file (can be base64 encoded or plain text).
                 mode:
                   type: string
-                  enum: [overwrite, append, prepend]
+                  enum: [overwrite, append, prepend, mkdir, chmod, rename]
                   default: overwrite
-                  description: "Write mode: overwrite (default), append (add to end), or prepend (add to beginning)."
+                  description: "Write mode: overwrite (default), append (add to end), prepend (add to beginning), mkdir (create path as a folder, with its parents; content is ignored), chmod (set file_perm, and mtime_ns when given, on path, which must exist and not be a symlink; content is ignored), or rename (move rename_from to path, replacing what is there; content is ignored)."
+                rename_from:
+                  type: string
+                  description: "With mode rename: the file in the space moved to path."
+                mtime_ns:
+                  type: integer
+                  format: int64
+                  description: Optional modification time, in Unix nanoseconds, applied after the write, rename or chmod.
+                file_perm:
+                  type: integer
+                  description: "Permission bits (e.g. 420 for 0o644), applied after the write, rename or mkdir; required for chmod."
       responses:
         "200":
           description: File written successfully

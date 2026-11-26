@@ -7,6 +7,7 @@ type nfs4RemoveArgs struct {
 }
 
 func nfs4OnRemove(c *nfs4Compound, args io.Reader, res io.Writer) nfs4Status {
+	c.w.waitEarlier() // knot: requests sent before the remove are made first
 	var req nfs4RemoveArgs
 	if status := nfs4Decode(args, &req); status != nfs4OK {
 		return status

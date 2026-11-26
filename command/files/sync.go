@@ -14,6 +14,7 @@ import (
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/command/cmdutil"
 	"github.com/paularlott/knot/internal/log"
+	"github.com/paularlott/knot/internal/util/dirwatch"
 	"github.com/paularlott/knot/internal/util/excludes"
 	"github.com/paularlott/logger"
 )
@@ -183,19 +184,19 @@ func runEngine(ctx context.Context, client *apiclient.ApiClient, opt syncOptions
 		return err
 	}
 	// A directory a dry run down would make does not exist yet.
-	var w dirWatcher
+	var w dirwatch.Watcher
 	if _, err := os.Stat(s.opt.dir); err == nil {
 		// Watching starts before the first look at the directory, so a
 		// change made while that pass runs is not missed.
 		if opt.watching && opt.mode != modeDown {
-			if w, err = newDirWatcher(s); err != nil {
+			if w, err = s.newDirWatcher(); err != nil {
 				return fmt.Errorf("watch %s: %w", s.opt.dir, err)
 			}
-			w.add(s.opt.dir)
+			w.Add(s.opt.dir)
 		}
 		if err := s.scanLocal(); err != nil {
 			if w != nil {
-				w.close()
+				w.Close()
 			}
 			return err
 		}

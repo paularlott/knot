@@ -190,8 +190,10 @@ func TestFileSyncBigTree(t *testing.T) {
 		}
 		t.Logf("folder of 200 files moved in, synced in %s", time.Since(start).Round(time.Millisecond))
 
-		stop()
+		// Read before stopping: on Ctrl+C the watch looks at every file once
+		// more, on purpose, to send what the watcher had yet to report.
 		log := readLog()
+		stop()
 		if strings.Contains(log, "looking at every local file") {
 			t.Error("the watch walked the whole tree for a change")
 		}
@@ -294,8 +296,8 @@ echo "$(pwd): $(find t -type f | wc -l) files"`,
 		}
 		t.Logf("folder of 200 files moved in, synced in %s", time.Since(start).Round(time.Millisecond))
 
+		log := readLog() // before stopping, as above
 		sh(30, "pkill -INT -f '[f]ile sync --watch' || true; sleep 2")
-		log := readLog()
 		if strings.Contains(log, "looking at every local file") {
 			t.Error("the watch in the space walked the whole tree for a change")
 		}

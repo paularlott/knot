@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -245,5 +246,108 @@ func TestPushRefusesEmptyLocal(t *testing.T) {
 	}
 	if stub.hasDeleted("/var/www/index.php") {
 		t.Error("index.php was deleted")
+	}
+}
+
+func TestPullMakesEmptyFoldersAndModes(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("folder modes are not set on Windows")
+	}
+	root := t.TempDir()
+	os.MkdirAll(filepath.Join(root, "same"), 0755)
+	stub := newStubClient()
+	remoteTree(stub, time.Now(), map[string]string{"full/a.txt": "a"})
+	stub.remoteEntries = append(stub.remoteEntries,
+		apiclient.FindEntry{Path: "/srv/empty/inner", IsDir: true, FilePerm: 0755},
+		apiclient.FindEntry{Path: "/srv/empty", IsDir: true, FilePerm: 0755},
+		apiclient.FindEntry{Path: "/srv/private", IsDir: true, FilePerm: 0700},
+		apiclient.FindEntry{Path: "/srv/same", IsDir: true, FilePerm: 0750},
+	)
+	stats, err := pullOptions(stub, root).runPull(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for rel, want := range map[string]os.FileMode{"empty/inner": 0755, "private": 0700, "same": 0750} {
+		info, err := os.Stat(filepath.Join(root, rel))
+		if err != nil || !info.IsDir() || info.Mode().Perm() != want {
+			t.Errorf("%s: %v %v, want folder %o", rel, err, info, want)
+		}
+	}
+	if stats.failed.Load() != 0 {
+		t.Errorf("failed %d", stats.failed.Load())
+	}
+	// A second run changes nothing.
+	stats, _ = pullOptions(stub, root).runPull(context.Background())
+	if stats.uploaded.Load() != 0 {
+		t.Errorf("second run made %d", stats.uploaded.Load())
+	}
+}
+
+func TestPullReadOnlyFolderFilledFirst(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("folder modes are not set on Windows")
+	}
+	root := t.TempDir()
+	t.Cleanup(func() { os.Chmod(filepath.Join(root, "ro"), 0755) })
+	stub := newStubClient()
+	remoteTree(stub, time.Now(), map[string]string{"ro/f.txt": "f"})
+	stub.remoteEntries = append(stub.remoteEntries, apiclient.FindEntry{Path: "/srv/ro", IsDir: true, FilePerm: 0500})
+	stats, err := pullOptions(stub, root).runPull(context.Background())
+	if err != nil || stats.failed.Load() != 0 {
+		t.Fatalf("err %v failed %d", err, stats.failed.Load())
+	}
+	if got := readLocal(t, root, "ro/f.txt"); got != "f" {
+		t.Errorf("f.txt = %q", got)
+	}
+	if info, _ := os.Stat(filepath.Join(root, "ro")); info.Mode().Perm() != 0500 {
+		t.Errorf("ro mode %o", info.Mode().Perm())
+	}
+}
+
+func TestPullFileBecomesSymlink(t *testing.T) {
+	root := t.TempDir()
+	os.WriteFile(filepath.Join(root, "link"), []byte("a file"), 0644)
+	stub := newStubClient()
+	remoteTree(stub, time.Now(), map[string]string{"target": "t"})
+	stub.remoteEntries = append(stub.remoteEntries, apiclient.FindEntry{Path: "/srv/link", LinkTarget: "target"})
+	stats, err := pullOptions(stub, root).runPull(context.Background())
+	if got, _ := os.Readlink(filepath.Join(root, "link")); err != nil || got != "target" || stats.failed.Load() != 0 {
+		t.Errorf("link -> %q, err %v, failed %d", got, err, stats.failed.Load())
+	}
+}
+
+func TestPullAppliesFileModeAndSkipsUploadTemps(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("file modes are not set on Windows")
+	}
+	root := t.TempDir()
+	mtime := time.Now().Add(-time.Hour).Truncate(time.Second)
+	writeTree(t, root, map[string]string{"app.sh": "x"})
+	os.Chtimes(filepath.Join(root, "app.sh"), mtime, mtime)
+	stub := newStubClient()
+	remoteTree(stub, mtime, map[string]string{"app.sh": "x", "data/.big.bin" + uploadSuffix: "part"})
+	for i := range stub.remoteEntries {
+		if stub.remoteEntries[i].Path == "/srv/app.sh" {
+			stub.remoteEntries[i].FilePerm = 0750
+		}
+	}
+	stats, err := pullOptions(stub, root).runPull(context.Background())
+	if err != nil || stub.reads != 0 || stats.failed.Load() != 0 {
+		t.Fatalf("err %v, reads %d, failed %d: want no downloads", err, stub.reads, stats.failed.Load())
+	}
+	if info, _ := os.Stat(filepath.Join(root, "app.sh")); info.Mode().Perm() != 0750 {
+		t.Errorf("app.sh mode %o, want 0750", info.Mode().Perm())
+	}
+	if _, err := os.Stat(filepath.Join(root, "data", ".big.bin"+uploadSuffix)); err == nil {
+		t.Error("an unfinished upload was pulled down")
+	}
+	// One here is left alone, not deleted as missing from the space.
+	mine := filepath.Join(root, ".notes"+uploadSuffix)
+	os.WriteFile(mine, []byte("mine"), 0644)
+	if _, err := pullOptions(stub, root).runPull(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(mine); err != nil {
+		t.Errorf("a local file named like an upload was deleted: %v", err)
 	}
 }

@@ -33,7 +33,12 @@ type Config struct {
 	Allow       []string      // client addresses or CIDRs allowed to connect; loopback when empty
 	FlushDelay  time.Duration // save a written file once writes stop for this long
 	MaxDirtyAge time.Duration // and at the latest this long after it changed
-	StagingDir  string        // where written files wait to be saved; a temp dir when empty
+	// StagingDir is where written files wait to be saved. What a server
+	// killed or crashed left there is taken back and saved when one
+	// starts again with it (see staging.recover). When empty: the cache's,
+	// with a cache, else a temporary folder, removed at Close, and writes
+	// not yet saved when the server dies are lost.
+	StagingDir string
 	Uid, Gid    uint32        // owner of files with none stored
 
 	// ForceUid and ForceGid make Uid and Gid the owner of every file,
@@ -54,8 +59,10 @@ type Config struct {
 type Server struct {
 	fs       *storeFS
 	listener net.Listener
+	nfs      *nfs.Server
 	staging  *staging
 	ownDir   string
+	lock     *os.File // held on the staging folder while serving
 	done     chan struct{}
 }
 
@@ -82,9 +89,9 @@ func Start(backend Backend, cfg Config) (*Server, error) {
 			return nil, fmt.Errorf("nfs cache: %w", err)
 		}
 		// Staged files go beside the cache, which takes them once saved.
-		// What a previous run left there was never committed.
-		cfg.StagingDir = cache.stagingDir()
-		os.RemoveAll(cfg.StagingDir)
+		if cfg.StagingDir == "" {
+			cfg.StagingDir = cache.stagingDir()
+		}
 	}
 	dir := cfg.StagingDir
 	if dir == "" {
@@ -104,6 +111,13 @@ func Start(backend Backend, cfg Config) (*Server, error) {
 	srv.fs = fsys
 	fsys.staging = newStaging(fsys, dir, cfg.FlushDelay, cfg.MaxDirtyAge)
 	srv.staging = fsys.staging
+	if srv.ownDir == "" {
+		if srv.lock, err = lockStaging(dir); err != nil {
+			return nil, err
+		}
+		fsys.staging.durable = true
+		fsys.staging.recover()
+	}
 
 	l, err := net.Listen("tcp", cfg.Listen)
 	if err != nil {
@@ -112,20 +126,19 @@ func Start(backend Backend, cfg Config) (*Server, error) {
 	}
 	srv.listener = &allowListener{Listener: l, allow: allow}
 
-	h := newHandler(fsys)
+	srv.nfs = &nfs.Server{
+		Handler: newHandler(fsys),
+		// Clients read ahead and write behind with many requests at once
+		// on one connection; each is a round trip to the knot server, so
+		// they are handled together.
+		ConcurrentHandlers: 32,
+		// NFSv3 and NFSv4.0, on the one port: macOS prefers NFSv4.
+		EnabledNFSVersions: []uint32{3, 4},
+	}
 	go func() {
 		defer close(srv.done)
-		ns := &nfs.Server{
-			Handler: h,
-			// Clients read ahead and write behind with many requests at
-			// once on one connection; each is a round trip to the knot
-			// server, so they are handled together.
-			ConcurrentHandlers: 32,
-			// NFSv3 and NFSv4.0, on the one port: macOS prefers NFSv4.
-			EnabledNFSVersions: []uint32{3, 4},
-		}
-		err := ns.Serve(srv.listener)
-		if err != nil && !errors.Is(err, net.ErrClosed) {
+		err := srv.nfs.Serve(srv.listener)
+		if err != nil && !errors.Is(err, nfs.ErrServerClosed) && !errors.Is(err, net.ErrClosed) {
 			log.WithGroup("nfs").Error("nfs server stopped", "error", err)
 		}
 	}()
@@ -144,11 +157,27 @@ func (s *Server) Changed(bucketIds []string, files []FileChanged) { s.fs.Changed
 // Addr is the address the server listens on.
 func (s *Server) Addr() net.Addr { return s.listener.Addr() }
 
-// Close stops accepting connections and saves every file still being
-// written. Connections already open are not interrupted.
+// shutdownWait bounds how long Close waits for the requests being handled
+// to be answered, and then for their handlers to return.
+const shutdownWait = 15 * time.Second
+
+// Close stops accepting connections and requests, answers those already
+// being handled, closes the connections and then saves every file still
+// being written. Clients send again what was not answered, to the server
+// that replaces this one.
 func (s *Server) Close() error {
-	err := s.listener.Close()
-	<-s.done
+	ctx, cancel := context.WithTimeout(context.Background(), shutdownWait)
+	defer cancel()
+	err := s.nfs.Shutdown(ctx)
+	if errors.Is(err, context.DeadlineExceeded) {
+		log.WithGroup("nfs").Warn("requests still being handled at shutdown were cut off")
+		err = nil
+	}
+	select {
+	case <-s.done:
+	case <-time.After(shutdownWait):
+		log.WithGroup("nfs").Warn("requests still being handled at shutdown; saving without them")
+	}
 	s.staging.close()
 	s.cleanup()
 	return err
@@ -157,6 +186,9 @@ func (s *Server) Close() error {
 func (s *Server) cleanup() {
 	if s.ownDir != "" {
 		os.RemoveAll(s.ownDir)
+	}
+	if s.lock != nil {
+		s.lock.Close()
 	}
 }
 

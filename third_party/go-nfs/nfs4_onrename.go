@@ -15,6 +15,7 @@ type nfs4RenameRes struct {
 // nfs4OnRename moves OldName in the saved directory to NewName in the
 // current one.
 func nfs4OnRename(c *nfs4Compound, args io.Reader, res io.Writer) nfs4Status {
+	c.w.waitEarlier() // knot: writes sent before the rename are made first
 	var req nfs4RenameArgs
 	if status := nfs4Decode(args, &req); status != nfs4OK {
 		return status

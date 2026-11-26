@@ -69,6 +69,25 @@ type staging struct {
 	files  map[string]*dirtyFile // by bucketKey
 	closed bool
 
+	// durable says the staging folder outlives the server, which then
+	// keeps the copies it cannot save as it closes, to be saved when it
+	// starts again (see recover).
+	durable bool
+
+	// moving holds the files and folders (bucketKey, and the prefix of
+	// what is below) being renamed here; no new copy of one is made until
+	// the rename is done, and moved signals that. Without it a WRITE that
+	// found the file just before a RENAME of it could make a copy after the
+	// rename saved what was staged, and save it at the old path once the
+	// rename was done: the file renamed without the write, and made again
+	// where it was.
+	moving []*movingKey
+	moved  *sync.Cond
+	// writers counts, by bucketKey, the writes on their way to a file
+	// (opened for one, not yet made): a rename waits for those begun before
+	// it, so it moves the file with them, as the client sent them first.
+	writers map[string]int
+
 	// failed holds why a file's writes were dropped, refused by the server,
 	// until the client is told: its next WRITE or COMMIT fails with it,
 	// rather than a COMMIT finding nothing to save and answering that all
@@ -109,6 +128,7 @@ type dirtyFile struct {
 
 	mu          sync.Mutex
 	f           *os.File
+	journal     *os.File // what was done to the copy, see journal.go
 	size        int64
 	base        *Object // the saved file the copy was made from, nil for a new one
 	sparse      bool    // the copy holds only the spans written, see sparseMin
@@ -130,7 +150,105 @@ type dirtyFile struct {
 func bucketKey(bucket, key string) string { return bucket + "\x00" + key }
 
 func newStaging(fs *storeFS, dir string, flushDelay, maxDirtyAge time.Duration) *staging {
-	return &staging{fs: fs, dir: dir, flushDelay: flushDelay, maxDirtyAge: maxDirtyAge, files: map[string]*dirtyFile{}}
+	s := &staging{fs: fs, dir: dir, flushDelay: flushDelay, maxDirtyAge: maxDirtyAge, files: map[string]*dirtyFile{}}
+	s.moved = sync.NewCond(&s.mu)
+	return s
+}
+
+// movingKey is a file being renamed (k) and what is below it (prefix).
+// waiting is true while the rename waits for the writes begun before it,
+// which alone may go on meanwhile; once it stops waiting, every change to
+// the file waits for the rename.
+type movingKey struct {
+	k, prefix string
+	waiting   bool
+}
+
+func (m *movingKey) covers(k string) bool {
+	return k == m.k || (m.prefix != "" && strings.HasPrefix(k, m.prefix))
+}
+
+// writersWait bounds how long a rename waits for writes to its file begun
+// before it; past it, the rename goes ahead and they follow the file.
+var writersWait = 5 * time.Second
+
+// startWrite notes a write on its way to the file k, reporting whether it
+// counts as begun before any rename of it (false while one is under way:
+// that write waits for the rename instead).
+func (s *staging) startWrite(k string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.movingLocked(k, false) {
+		return false
+	}
+	if s.writers == nil {
+		s.writers = map[string]int{}
+	}
+	s.writers[k]++
+	return true
+}
+
+// endWrite notes that a write startWrite counted is made.
+func (s *staging) endWrite(k string) {
+	s.mu.Lock()
+	if s.writers[k]--; s.writers[k] <= 0 {
+		delete(s.writers, k)
+	}
+	s.mu.Unlock()
+	s.moved.Broadcast()
+}
+
+// writingLocked reports whether a counted write is on its way to m's file
+// or one below it; s.mu is held.
+func (s *staging) writingLocked(m *movingKey) bool {
+	for k := range s.writers {
+		if m.covers(k) {
+			return true
+		}
+	}
+	return false
+}
+
+// beginMove holds off new copies of the file k and of those below prefix
+// until the returned done is called, once the rename is made, and waits
+// (for up to writersWait) for the writes to them begun before it.
+func (s *staging) beginMove(k, prefix string) (done func()) {
+	m := &movingKey{k: k, prefix: prefix, waiting: true}
+	s.mu.Lock()
+	s.moving = append(s.moving, m)
+	if s.writingLocked(m) {
+		timer := time.AfterFunc(writersWait, s.moved.Broadcast)
+		deadline := time.Now().Add(writersWait)
+		for s.writingLocked(m) && time.Now().Before(deadline) {
+			s.moved.Wait()
+		}
+		timer.Stop()
+	}
+	m.waiting = false // from here, every change waits for the rename
+	s.mu.Unlock()
+	return func() {
+		s.mu.Lock()
+		for i, x := range s.moving {
+			if x == m {
+				s.moving = append(s.moving[:i], s.moving[i+1:]...)
+				break
+			}
+		}
+		s.mu.Unlock()
+		s.moved.Broadcast()
+	}
+}
+
+// movingLocked reports whether k is being renamed, and a change to it must
+// wait; early, a write begun before the rename, waits only once the rename
+// no longer waits for it. s.mu is held.
+func (s *staging) movingLocked(k string, early bool) bool {
+	for _, m := range s.moving {
+		if m.covers(k) && !(early && m.waiting) {
+			return true
+		}
+	}
+	return false
 }
 
 // get returns the staged copy of a file, nil when it has none.
@@ -152,6 +270,16 @@ const (
 // open returns the staged copy of a file, locked, making one when there is
 // none from what load says.
 func (s *staging) open(bucket, key string, load loadMode) (*dirtyFile, error) {
+	return s.openFor(bucket, key, load, false, false)
+}
+
+// openFor is open; byHandle says the change comes by a handle to a file
+// that was there (a WRITE or SETATTR), not one making the file (a CREATE),
+// so it must not make a new file where one was renamed or removed here
+// meanwhile (see storeFS.movedAway). early says it is a write begun before
+// any rename of the file, which that rename waits for, so it must not wait
+// for the rename.
+func (s *staging) openFor(bucket, key string, load loadMode, byHandle, early bool) (*dirtyFile, error) {
 	k := bucketKey(bucket, key)
 	// Writes on top of ones dropped would hide that they were: fail until
 	// the client has been told (see failed), unless it starts the file
@@ -170,13 +298,25 @@ func (s *staging) open(bucket, key string, load loadMode) (*dirtyFile, error) {
 			return nil, os.ErrClosed
 		}
 		e := s.files[k]
+		if e == nil && s.movingLocked(k, early) {
+			// Being renamed: wait, then look again (the file is gone from
+			// here, and a change by handle follows it; see movedAway).
+			s.moved.Wait()
+			s.mu.Unlock()
+			continue
+		}
 		if e == nil {
 			e = &dirtyFile{s: s, bucket: bucket, key: key, meta: map[string]string{}}
 			e.mu.Lock()
 			s.files[k] = e
 			s.mu.Unlock()
-			if err := e.load(load); err != nil {
+			err := e.load(load, byHandle)
+			if err == nil {
+				err = e.startJournal()
+			}
+			if err != nil {
 				e.gone = true
+				e.endJournal()
 				if e.f != nil {
 					e.f.Close()
 					os.Remove(e.f.Name())
@@ -202,7 +342,7 @@ func (s *staging) open(bucket, key string, load loadMode) (*dirtyFile, error) {
 }
 
 // load fills a new copy.
-func (e *dirtyFile) load(load loadMode) error {
+func (e *dirtyFile) load(load loadMode, byHandle bool) error {
 	f, err := os.CreateTemp(e.s.dir, "stage-*")
 	if err != nil {
 		return err
@@ -219,6 +359,13 @@ func (e *dirtyFile) load(load loadMode) error {
 			e.keepAttrs(o)
 			e.fromETag = o.ETag
 		} else if errors.Is(err, os.ErrNotExist) {
+			// Not a new file when it was renamed or removed here as this
+			// change was on its way.
+			if byHandle {
+				if err := e.s.fs.movedAway(e.bucket, e.key); err != nil {
+					return err
+				}
+			}
 			e.meta[metaIno] = newIno() // a new file
 		} else {
 			return err
@@ -227,6 +374,13 @@ func (e *dirtyFile) load(load loadMode) error {
 	}
 	o, err := e.s.fs.backend.Head(ctx(), e.bucket, e.key)
 	if errors.Is(err, os.ErrNotExist) {
+		// Not a new file when it was renamed or removed here as this
+		// write was on its way.
+		if byHandle {
+			if err := e.s.fs.movedAway(e.bucket, e.key); err != nil {
+				return err
+			}
+		}
 		e.meta[metaIno] = newIno()
 		return nil
 	} else if err != nil {
@@ -343,6 +497,11 @@ func (e *dirtyFile) writeAt(b []byte, off int64) (int, error) {
 		e.written.add(off, off+int64(n))
 	}
 	e.modified()
+	if n > 0 {
+		if jerr := e.record(journalChange{Op: "w", Off: off, N: int64(n), Mtime: e.mtime}); jerr != nil && err == nil {
+			err = jerr
+		}
+	}
 	return n, err
 }
 
@@ -359,7 +518,7 @@ func (e *dirtyFile) truncate(size int64) error {
 	}
 	e.size = size
 	e.modified()
-	return nil
+	return e.record(journalChange{Op: "t", Size: size, Meta: e.meta, Mtime: e.mtime})
 }
 
 // setMeta records an attribute on the staged copy, false once it is saved.
@@ -374,6 +533,9 @@ func (e *dirtyFile) setMeta(kv map[string]string) bool {
 	}
 	e.mtime = mtimeFrom(e.meta, e.mtime)
 	e.changed()
+	if err := e.record(journalChange{Op: "m", Meta: e.meta, Mtime: e.mtime}); err != nil {
+		log.WithGroup("nfs").Warn("could not record a file's attributes for a restart", "bucket", e.bucket, "key", e.key, "error", err)
+	}
 	return true
 }
 
@@ -608,11 +770,17 @@ func (e *dirtyFile) save() error {
 				e.s.fs.noticeMerge(e.bucket, e.key, saved)
 			}
 		}
+		if err == nil {
+			e.endJournal()
+		}
 		return err
 	}
 
 	o, err := e.s.fs.backend.Put(ctx(), e.bucket, e.key, io.NewSectionReader(e.f, 0, e.size), e.size, e.contentType, e.meta)
 	saved = o
+	if err == nil {
+		e.endJournal()
+	}
 	if err == nil && e.s.fs.cache.keeps(e.size) {
 		// The copy is the file now saved: keep it.
 		e.f.Close()
@@ -636,9 +804,31 @@ func (s *staging) drop(e *dirtyFile) {
 	if e.timer != nil {
 		e.timer.Stop()
 	}
+	e.endJournal()
 	if e.f != nil {
 		e.f.Close()
 		os.Remove(e.f.Name())
+	}
+	s.mu.Lock()
+	if k := bucketKey(e.bucket, e.key); s.files[k] == e {
+		delete(s.files, k)
+	}
+	s.mu.Unlock()
+}
+
+// keep lets a staged copy go, leaving it and its journal for the next
+// server to take back (see recover); e.mu is held.
+func (s *staging) keep(e *dirtyFile) {
+	e.gone = true
+	if e.timer != nil {
+		e.timer.Stop()
+	}
+	if e.journal != nil {
+		e.journal.Close()
+		e.journal = nil
+	}
+	if e.f != nil {
+		e.f.Close()
 	}
 	s.mu.Lock()
 	if k := bucketKey(e.bucket, e.key); s.files[k] == e {
@@ -720,8 +910,13 @@ func (s *staging) close() {
 		if s.flush(e) != nil {
 			e.mu.Lock()
 			if !e.gone {
-				log.WithGroup("nfs").Error("dropping unsaved writes at shutdown", "bucket", e.bucket, "key", e.key)
-				s.drop(e)
+				if s.durable {
+					log.WithGroup("nfs").Warn("keeping unsaved writes at shutdown, to be saved when the nfs-server starts again", "bucket", e.bucket, "key", e.key)
+					s.keep(e)
+				} else {
+					log.WithGroup("nfs").Error("dropping unsaved writes at shutdown", "bucket", e.bucket, "key", e.key)
+					s.drop(e)
+				}
 			}
 			e.mu.Unlock()
 		}
