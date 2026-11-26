@@ -39,23 +39,23 @@ const stagingLock = "lock"
 
 // journalInit is a staged copy as made, the first record of its journal.
 type journalInit struct {
-	Bucket      string            `json:"bucket"`
-	Key         string            `json:"key"`
-	Size        int64             `json:"size"`
-	Sparse      bool              `json:"sparse,omitempty"`
-	Keep        int64             `json:"keep,omitempty"`
-	Base        *journalBase      `json:"base,omitempty"`
-	ContentType string            `json:"contentType,omitempty"`
-	Meta        map[string]string `json:"meta,omitempty"`
-	Mtime       time.Time         `json:"mtime"`
-	FromETag    string            `json:"fromETag,omitempty"`
+	Bucket      string            `json:"bucket" msgpack:"bucket"`
+	Key         string            `json:"key" msgpack:"key"`
+	Size        int64             `json:"size" msgpack:"size"`
+	Sparse      bool              `json:"sparse,omitempty" msgpack:"sparse"`
+	Keep        int64             `json:"keep,omitempty" msgpack:"keep"`
+	Base        *journalBase      `json:"base,omitempty" msgpack:"base"`
+	ContentType string            `json:"contentType,omitempty" msgpack:"contentType"`
+	Meta        map[string]string `json:"meta,omitempty" msgpack:"meta"`
+	Mtime       time.Time         `json:"mtime" msgpack:"mtime"`
+	FromETag    string            `json:"fromETag,omitempty" msgpack:"fromETag"`
 }
 
 // journalBase is what a copy keeps of the saved file it was made from.
 type journalBase struct {
-	ETag   string `json:"etag"`
-	SHA256 string `json:"sha256"`
-	Size   int64  `json:"size"`
+	ETag   string `json:"etag" msgpack:"etag"`
+	SHA256 string `json:"sha256" msgpack:"sha256"`
+	Size   int64  `json:"size" msgpack:"size"`
 }
 
 // journalChange is a change to a staged copy: a write (Op "w", of N bytes at
@@ -63,12 +63,12 @@ type journalBase struct {
 // truncation and attributes set record the copy's attributes then: a new
 // file's are set as it is made, before the truncation that empties it.
 type journalChange struct {
-	Op    string            `json:"op"`
-	Off   int64             `json:"off,omitempty"`
-	N     int64             `json:"n,omitempty"`
-	Size  int64             `json:"size,omitempty"`
-	Meta  map[string]string `json:"meta,omitempty"`
-	Mtime time.Time         `json:"mtime"`
+	Op    string            `json:"op" msgpack:"op"`
+	Off   int64             `json:"off,omitempty" msgpack:"off"`
+	N     int64             `json:"n,omitempty" msgpack:"n"`
+	Size  int64             `json:"size,omitempty" msgpack:"size"`
+	Meta  map[string]string `json:"meta,omitempty" msgpack:"meta"`
+	Mtime time.Time         `json:"mtime" msgpack:"mtime"`
 }
 
 // startJournal begins a new copy's journal; e.mu is held.
