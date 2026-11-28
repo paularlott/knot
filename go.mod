@@ -18,7 +18,7 @@ require (
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/gliderlabs/ssh v0.3.8
 	github.com/go-git/go-billy/v5 v5.9.2
-	github.com/go-sql-driver/mysql v1.10.2
+	github.com/go-sql-driver/mysql v1.11.0
 	github.com/go-webauthn/webauthn v0.18.2
 	github.com/go-webgpu/goffi v0.6.8
 	github.com/gogpu/systray v0.3.0
@@ -30,12 +30,12 @@ require (
 	github.com/paularlott/cli v0.10.3
 	github.com/paularlott/gossip v0.31.1
 	github.com/paularlott/jsonrpc v0.4.0
-	github.com/paularlott/lmchatkit v0.13.2
+	github.com/paularlott/lmchatkit v0.14.0
 	github.com/paularlott/logger v0.4.0
-	github.com/paularlott/mcp v0.36.0
-	github.com/paularlott/scriptling v0.44.0
+	github.com/paularlott/mcp v0.39.0
+	github.com/paularlott/scriptling v0.45.1
 	github.com/pkg/sftp v1.13.13
-	github.com/shamaton/msgpack/v3 v3.2.8
+	github.com/shamaton/msgpack/v3 v3.3.0
 	github.com/shirou/gopsutil/v3 v3.24.5
 	github.com/valkey-io/valkey-go v1.0.80
 	github.com/willscott/go-nfs v0.0.5-0.20260926204150-6274d051a57f
@@ -44,7 +44,7 @@ require (
 	github.com/yeqown/go-qrcode/writer/standard v1.4.0
 	github.com/yuin/goldmark v1.8.7
 	golang.org/x/crypto v0.59.0
-	golang.org/x/exp v0.0.0-20261124000051-d6646c509b6d
+	golang.org/x/exp v0.0.0-20261128033645-f63ec7c7eed0
 	golang.org/x/net v0.63.0
 	golang.org/x/sys v0.50.0
 	golang.org/x/term v0.48.0

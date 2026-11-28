@@ -2520,6 +2520,36 @@ const scriptlingLibraries = [
         description: "Report progress to the MCP client.",
         returns: "None",
       },
+      {
+        name: "can_ask",
+        signature: "can_ask()",
+        description: "Whether the person using the MCP client can be asked questions.",
+        returns: "bool",
+      },
+      {
+        name: "ask",
+        signature: "ask(message, schema, key=\"\")",
+        description: "Ask the person a question through the MCP client.",
+        returns: "dict[str, Any] - {\"action\": \"accept\", \"content\": {...}}, {\"action\": \"decline\"} or {\"action\": \"cancel\"}; None when the client cannot be asked",
+      },
+      {
+        name: "confirm",
+        signature: "confirm(message)",
+        description: "Ask the person to approve an action through the MCP client.",
+        returns: "bool - True if approved",
+      },
+      {
+        name: "remember",
+        signature: "remember(name, value)",
+        description: "Keep a value for the tool's re-run after a question.",
+        returns: "bool - True if kept; False when there will be no re-run to keep it for",
+      },
+      {
+        name: "recall",
+        signature: "recall(name, default=None)",
+        description: "Read back what remember() kept on an earlier run of this tool call.",
+        returns: "Any - The kept value, or default",
+      },
     ],
   },
   {

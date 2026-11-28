@@ -236,7 +236,9 @@
                               running
                             </span>
                             <span class="px-1.5 py-0.5 rounded bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300"
-                                  x-text="m.tool_calls.filter(c => c.approval === 'approved' && !c.running).length + ' ok'"></span>
+                                  x-text="m.tool_calls.filter(c => c.approval === 'approved' && !c.running && !c.input).length + ' ok'"></span>
+                            <span x-show="m.tool_calls.some(c => c.input)"
+                                  class="px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300">needs your answer</span>
                             <span x-show="m.tool_calls.some(c => c.approval === 'denied' || c.approval === 'error')"
                                   class="px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-300">issues</span>
                           </span>
@@ -370,6 +372,94 @@
                                       class="px-3 py-1.5 text-xs font-medium rounded bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-white hover:bg-gray-300 dark:hover:bg-gray-600 cursor-pointer">Deny</button>
                             </div>
                           </div>
+                        </template>
+                      </div>
+                    </template>
+
+                    <!-- ====== TOOL QUESTIONS (MCP elicitation): a running
+                       tool asked the person something and waits for the
+                       answer. Pinned like the approval prompt. ====== -->
+                    <template
+                      x-if="m.role === 'assistant' && m.tool_calls && m.tool_calls.some(c => c.input)"
+                    >
+                      <div class="mt-3 flex flex-col gap-2">
+                        <template
+                          x-for="call in m.tool_calls.filter(c => c.input)"
+                          :key="call.id + ':' + call.input.token"
+                        >
+                            <form @submit.prevent="submitToolInput(call)" novalidate
+                                  :aria-labelledby="call.input.token + '-title'"
+                                  class="rounded-lg border border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/30 p-4 space-y-3">
+                              <div :id="call.input.token + '-title'" class="flex items-center gap-2 text-sm font-semibold text-blue-900 dark:text-blue-100">
+                                <code class="bg-blue-200 dark:bg-blue-800 text-blue-900 dark:text-blue-100 px-1.5 py-0.5 rounded font-mono" x-text="call.name"></code>
+                                needs your answer to continue
+                              </div>
+                              <template x-for="(q, qi) in call.input.questions" :key="q.key">
+                                <fieldset class="space-y-2">
+                                  <legend class="text-sm text-gray-900 dark:text-gray-100 whitespace-pre-wrap" x-text="q.message"></legend>
+                                  <template x-for="(f, fi) in q.fields" :key="f.name">
+                                    <div class="space-y-1">
+                                      <template x-if="f.kind === 'boolean'">
+                                        <label class="flex items-center gap-2 text-xs text-gray-800 dark:text-gray-200">
+                                          <input type="checkbox" :id="call.input.token + '-' + qi + '-' + fi" :aria-invalid="call.input.errorField === q.key + '/' + f.name ? 'true' : null"
+                                                 :aria-describedby="f.description ? call.input.token + '-' + qi + '-' + fi + '-desc' : null"
+                                                 x-model="call.input.values[q.key][f.name]"
+                                                 class="w-4 h-4 rounded border-gray-400 focus-visible:outline-2 focus-visible:outline-blue-600">
+                                          <span x-text="f.label"></span>
+                                        </label>
+                                      </template>
+                                      <template x-if="f.kind === 'multi'">
+                                        <fieldset :aria-describedby="f.description ? call.input.token + '-' + qi + '-' + fi + '-desc' : null">
+                                          <legend class="text-xs font-medium text-gray-800 dark:text-gray-200"><span x-text="f.label"></span><span x-show="f.required" aria-hidden="true"> *</span></legend>
+                                          <template x-for="(o, oi) in f.options" :key="oi">
+                                            <label class="flex items-center gap-2 text-xs text-gray-800 dark:text-gray-200">
+                                              <input type="checkbox" :value="o.value" x-model="call.input.values[q.key][f.name]"
+                                                     class="w-4 h-4 rounded border-gray-400 focus-visible:outline-2 focus-visible:outline-blue-600">
+                                              <span x-text="o.label"></span>
+                                            </label>
+                                          </template>
+                                        </fieldset>
+                                      </template>
+                                      <template x-if="f.kind !== 'boolean' && f.kind !== 'multi'">
+                                        <div class="space-y-1">
+                                          <label :for="call.input.token + '-' + qi + '-' + fi" class="block text-xs font-medium text-gray-800 dark:text-gray-200"><span x-text="f.label"></span><span x-show="f.required" aria-hidden="true"> *</span></label>
+                                          <template x-if="f.kind === 'select'">
+                                            <select :id="call.input.token + '-' + qi + '-' + fi" :aria-invalid="call.input.errorField === q.key + '/' + f.name ? 'true' : null" :required="f.required"
+                                                    :aria-describedby="f.description ? call.input.token + '-' + qi + '-' + fi + '-desc' : null"
+                                                    x-model="call.input.values[q.key][f.name]"
+                                                    class="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-xs px-2 py-1.5 focus-visible:outline-2 focus-visible:outline-blue-600">
+                                              <option value="">Choose…</option>
+                                              <template x-for="(o, oi) in f.options" :key="oi">
+                                                <option :value="o.value" x-text="o.label"></option>
+                                              </template>
+                                            </select>
+                                          </template>
+                                          <template x-if="f.kind !== 'select'">
+                                            <input :id="call.input.token + '-' + qi + '-' + fi" :aria-invalid="call.input.errorField === q.key + '/' + f.name ? 'true' : null" :required="f.required"
+                                                   :type="f.kind === 'string' ? f.inputType : 'number'"
+                                                   :step="f.kind === 'integer' ? '1' : (f.kind === 'number' ? 'any' : null)"
+                                                   :aria-describedby="f.description ? call.input.token + '-' + qi + '-' + fi + '-desc' : null"
+                                                   x-model="call.input.values[q.key][f.name]"
+                                                   class="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-xs px-2 py-1.5 focus-visible:outline-2 focus-visible:outline-blue-600">
+                                          </template>
+                                        </div>
+                                      </template>
+                                      <p x-show="f.description" :id="call.input.token + '-' + qi + '-' + fi + '-desc'"
+                                         class="text-xs text-gray-600 dark:text-gray-400" x-text="f.description"></p>
+                                    </div>
+                                  </template>
+                                </fieldset>
+                              </template>
+                              <p role="alert" x-show="call.input.error" x-text="call.input.error"
+                                 class="text-xs font-medium text-red-700 dark:text-red-300"></p>
+                              <div class="flex items-center gap-3">
+                                <button type="submit"
+                                        x-init="$nextTick(() => { const first = $el.closest('form').querySelector('input, select'); (first || $el).focus(); })"
+                                        class="px-4 py-2 text-xs font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">Submit</button>
+                                <button type="button" @click="declineToolInput(call)"
+                                        class="px-4 py-2 text-xs font-medium rounded-md bg-gray-200 text-gray-900 hover:bg-gray-300 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">Decline</button>
+                              </div>
+                            </form>
                         </template>
                       </div>
                     </template>

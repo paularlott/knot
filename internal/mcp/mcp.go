@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"github.com/paularlott/knot/internal/mcpstatekey"
 	"net/http"
 	"strings"
 
@@ -88,6 +89,13 @@ func InitializeMCPServer(routes *http.ServeMux, enableWebEndpoint bool, mcpConfi
 	// The internal server for knot's own AI surfaces: same natives, plus
 	// remote server federation (registered below).
 	server := newKnotMCPServer()
+
+	// Both servers sign a tool's question state (MCP elicitation) with the
+	// key every node shares, so the answer can come back through any node,
+	// or after a restart.
+	if err := mcpstatekey.Apply(endpointServer, server); err != nil {
+		log.WithGroup("mcp").Warn("MCP question state is signed per process: no shared key", "error", err.Error())
+	}
 
 	if enableWebEndpoint {
 		// Create unified handler for /mcp endpoint

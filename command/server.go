@@ -1307,6 +1307,9 @@ func RunServer(cmd *cli.Command, quit <-chan struct{}) error {
 			AuthMiddleware: chatAuthMiddleware,
 			History:        historyStore,
 			Events:         chatEvents,
+			// Tools may ask the person questions (MCP elicitation); the chat
+			// shows them as a form. The chat host is a plain StandardHost.
+			ToolInput: true,
 		})
 		if err != nil {
 			logger.Warn("failed to initialize lmchatkit UI", "error", err)

@@ -57,4 +57,6 @@ const (
 	FilesSlotsMsg
 	FilesContentBatchMsg
 	DeviceGrantGossipMsg
+	MCPStateKeyFullSyncMsg
+	MCPStateKeyGossipMsg
 )

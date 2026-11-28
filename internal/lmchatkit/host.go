@@ -57,6 +57,14 @@ func NewHost(cfg config.ChatConfig, mcpServer *mcplib.Server, scriptToolsProvide
 		MCPServer: func(ctx context.Context) *mcplib.Server {
 			return mcpServer
 		},
+		// A tool's questions come back with signed state; bind it to the
+		// logged-in user, so one user's chat can't answer with another's.
+		InputPrincipal: func(ctx context.Context) string {
+			if user := userFromCtx(ctx); user != nil {
+				return user.Id
+			}
+			return ""
+		},
 		SystemPromptAugmenter: func(ctx context.Context, current string) string {
 			user := userFromCtx(ctx)
 			if user == nil {
