@@ -32,8 +32,8 @@ require (
 	github.com/paularlott/jsonrpc v0.4.0
 	github.com/paularlott/lmchatkit v0.14.0
 	github.com/paularlott/logger v0.4.0
-	github.com/paularlott/mcp v0.39.0
-	github.com/paularlott/scriptling v0.45.1
+	github.com/paularlott/mcp v0.41.0
+	github.com/paularlott/scriptling v0.45.3
 	github.com/pkg/sftp v1.13.13
 	github.com/shamaton/msgpack/v3 v3.3.0
 	github.com/shirou/gopsutil/v3 v3.24.5
